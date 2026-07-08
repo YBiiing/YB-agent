@@ -325,3 +325,139 @@ WebUI 本质上是一个**机制演示的展示窗口**——评审者打开浏�
 | Q4: 危险动作 | 四类分层：直接拦截 / 需审批 / 白名单放行 / 默认审批 |
 | Q5: 反馈信号 | 客观（来自工具输出）+ 确定（纯函数）+ 可回灌（格式化拼入上下文） |
 | Q6: CLI vs WebUI | CLI 是"用"的（交互审批），WebUI 是"看"的（只读演示） |
+
+---
+
+# SPEC Process · Part 2：实现前自我验证
+
+## 4.5 自我验证：用"陌生"智能体冷启动试运行
+
+### 验证设置
+
+- 验证时间：2026-07-08
+- 验证方式：启动一个不使用既有对话解释的 agent，仅提供 `docs/SPEC.md` 与 `PLAN.md`
+- 指令：从 `PLAN.md` 中自主选择 1-2 个 task 推进；遇到不确定之处立即暂停询问，不凭猜测继续
+- 实际选择：任务 1「项目骨架与配置」与任务 2「核心数据模型」
+- 执行分支：`implement-plan-tasks-1-2`
+
+### 第二个 agent 在哪里暂停并提问？
+
+1. 初始暂停：未在根目录找到 `spec.md`，且 `PLAN.md` 首次读取乱码。该问题来自文件位置与终端编码，不计入 spec 质量观察。
+2. 正式暂停：读取 `docs/SPEC.md` 与 `PLAN.md` 后，发现当前分支是 `main`，而执行计划技能要求不要在 `main/master` 上直接实现。该问题来自执行环境流程，不计入 spec 质量观察。
+3. task 内未因需求语义暂停：在任务 1/2 内，第二个 agent 能按 plan 创建骨架、写失败测试、确认红灯、实现 `src/models.py` 并跑通测试。
+
+### 暴露出的 SPEC / PLAN 缺陷
+
+| 观察 | 影响 | 归因 |
+|------|------|------|
+| `PLAN.md` 任务 1 写 `config.yaml` 由 Task 2 的 `src/config.py` 加载，但 Task 2 实际是数据模型 | 后续 agent 可能错误期待任务 2 产出配置加载器 | PLAN 写错 |
+| `make test` 在 Windows 环境不可用 | 验证步骤在本地无法直接执行，agent 需要自行找等价命令 | SPEC/PLAN 未写清跨平台 fallback |
+| shell 超时测试使用 `sleep 10` | Windows 默认环境可能没有 `sleep`，导致测试与实现无关地失败 | PLAN 平台假设不完整 |
+| 任务 13、16、18、19、20 缺少严格失败测试 | 不满足 writing-plans 对每个 task 红绿验证的要求，容易出现“导入通过但功能不可用” | PLAN 测试设计不完整 |
+| 任务 11、13、17 偏大 | 单个 subagent 可以做，但审查面过宽，失败时难定位 | PLAN 颗粒度可优化 |
+| 任务 18/19/20 被标成末尾可并行 | Docker、CI、README 都依赖实际 CLI/测试/文档状态，过早并行会产生不一致产物 | PLAN 依赖表达过粗 |
+| `DangerousCmd` 与 `DestructiveOp` 同时命中时未写优先级 | 不同实现者可能把 `rm -rf /` 做成审批而不是直接拦截 | SPEC 护栏边界不清 |
+
+### 与原意不一致的解读
+
+- 第二个 agent 没有对任务 1/2 做出与原意明显不一致的实现；它选择最小依赖链任务 1 和任务 2，符合计划依赖图。
+- 它保留已有 `.gitignore` 的更多内容，只补齐 `.ruff_cache/`，没有按计划片段缩窄文件内容。这是合理解读：计划要求创建 `.gitignore`，但已有文件更完整，覆盖会删除有价值内容。
+- 它用 `pytest tests/unit/ -v` 替代 `make test`。这是环境 fallback，不是对原意的偏离；但说明 SPEC/PLAN 应写明 Windows fallback。
+
+### 产出与预期差距
+
+- 任务 1/2 代码产出与预期基本一致：项目骨架、配置、测试目录、示例项目、`src/models.py` 与 `tests/unit/test_models.py` 均已实现。
+- TDD 过程符合预期：`tests/unit/test_models.py` 先因 `ModuleNotFoundError: No module named 'src.models'` 失败，随后实现后 `11 passed`。
+- 差距主要来自验证命令：`make test` 因环境缺少 `make` 无法执行，最终用等价命令 `pytest tests/unit/ -v` 通过。
+
+### 据此做出的 SPEC / PLAN 修订
+
+#### 修订 1：补充跨平台验证约束
+
+修订前：
+
+```markdown
+- Python >= 3.11
+- TDD：先写失败测试 → 确认红色 → 实现 → 确认绿色 → 提交
+```
+
+修订后：
+
+```markdown
+- 基准验证环境：Python 3.11；本地可用 Python 3.11+，但 CI/Docker 以 Python 3.11 为准
+- Windows fallback：若 `make` 不可用，用 `python -m pytest tests/unit/ -v` 替代 `make test`
+- 跨平台测试：不要依赖 `sleep`、`rm` 等 Unix-only 命令；需要超时时使用 `python -c "import time; time.sleep(10)"`
+```
+
+#### 修订 2：修正任务 1 的配置依赖错误
+
+修订前：
+
+```markdown
+产出：`config.yaml`（由 Task 2 的 `src/config.py` 加载）
+```
+
+修订后：
+
+```markdown
+产出：`config.yaml`（由任务 8 的 `src/config.py` 加载）
+```
+
+#### 修订 3：明确护栏优先级
+
+修订前：
+
+```markdown
+`DangerousCmd` 命中 → `allowed=False`
+`DestructiveOp` 命中 → `requires_approval=True`
+```
+
+修订后：
+
+```markdown
+`allowed=False` 的直接拦截规则优先于审批规则。
+例如 `rm -rf /` 同时命中 `DangerousCmd` 与 `DestructiveOp` 时，最终判定必须是 `allowed=False`。
+```
+
+#### 修订 4：补齐后期 task 的失败测试
+
+修订前：
+
+```markdown
+任务 13：验证 CLI 可导入
+任务 16：验证 WebUI 可启动
+任务 18：验证 Dockerfile 可构建
+任务 19：验证 CI 配置是合法 YAML
+任务 20：实现 README
+```
+
+修订后：
+
+```markdown
+任务 13：先写 `tests/unit/test_cli.py`，验证 `python -m src.cli.main --help`
+任务 16：先写 `tests/unit/test_web.py`，验证 `/` 与 `/api/demo`
+任务 18：先运行 `docker build -t harness .` 确认 Dockerfile 缺失时失败，再实现
+任务 19：先写 `tests/unit/test_ci_config.py`，验证 `unit-test` job 与 pytest 命令
+任务 20：先写 `tests/unit/test_readme.py`，验证 README 关键章节与命令
+```
+
+#### 修订 5：细化并行依赖
+
+修订前：
+
+```markdown
+- 任务 13 完成后，任务 14、16 可并行
+- 末尾任务 18、19、20 可并行
+```
+
+修订后：
+
+```markdown
+- 任务 11 完成后，任务 13、14、17 可并行；任务 13 完成后，任务 15 与任务 18 可开始
+- 任务 16 若只做静态 demo，可在任务 13 后并行；若要消费真实 demo Trace，等任务 17 完成
+- 任务 19 等 `tests/unit/` 与 `tests/demo/` 都存在后执行；任务 20 放在最后，确保 README 与实际命令一致
+```
+
+### 结论
+
+冷启动验证说明：原始 `SPEC.md` 与 `PLAN.md` 能支撑任务 1/2 的实现，但会在跨平台验证、后期 task 红绿测试、护栏边界和并行依赖上给陌生 agent 留下隐性假设。修订后，计划更接近 writing-plans 要求：每个重要 task 有目标、涉及文件、实现要点、验证步骤，并明确依赖与可并行部分。

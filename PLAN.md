@@ -19,6 +19,9 @@
 - 包管理：`pip` + `pyproject.toml`
 - 配置文件：项目根目录 `config.yaml`
 - 记忆目录：`.harness/memory/`
+- 基准验证环境：Python 3.11；本地可用 Python 3.11+，但 CI/Docker 以 Python 3.11 为准
+- Windows fallback：若 `make` 不可用，用 `python -m pytest tests/unit/ -v` 替代 `make test`，用 `python -m pytest tests/demo/ -v` 替代 `make demo`
+- 跨平台测试：不要依赖 `sleep`、`rm` 等 Unix-only 命令；需要超时时使用 `python -c "import time; time.sleep(10)"`
 
 ---
 
@@ -86,6 +89,8 @@ README.md
 
 ### 任务 1：项目骨架与配置
 
+**目标：** 建立可安装、可导入、可运行测试命令的最小 Python 项目骨架，为后续所有任务提供包结构、配置文件和示例项目。
+
 **文件：**
 - 创建：`pyproject.toml`
 - 创建：`config.yaml`
@@ -106,7 +111,7 @@ README.md
 
 **接口：**
 - 消费：无
-- 产出：`config.yaml`（由 Task 2 的 `src/config.py` 加载）、`pyproject.toml`（所有任务的依赖）、`Makefile`（test/lint/run/demo 命令）、示例项目（供 demo 任务使用）
+- 产出：`config.yaml`（由任务 8 的 `src/config.py` 加载）、`pyproject.toml`（所有任务的依赖）、`Makefile`（test/lint/run/demo 命令）、示例项目（供 demo 任务使用）
 
 - [ ] **步骤 1：创建 `pyproject.toml`**
 
@@ -299,6 +304,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 任务 2：核心数据模型
 
+**目标：** 实现所有核心数据对象，使后续 LLM、工具、护栏、反馈、记忆和主循环模块共享同一套类型契约。
+
 **文件：**
 - 创建：`src/models.py`
 - 创建：`tests/unit/test_models.py`
@@ -486,6 +493,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 任务 3：LLM 抽象层——基类 + Mock
 
+**目标：** 定义可替换的 LLM 客户端接口，并实现两个确定性 mock LLM，保证核心机制可脱离真实网络和真实 LLM 测试。
+
 **文件：**
 - 创建：`src/llm/base.py`
 - 创建：`src/llm/mock.py`
@@ -651,6 +660,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 任务 4：Action 解析器
 
+**目标：** 将 LLM 的文本输出解析成结构化 `Action`，并对未知工具、缺失参数和 JSON 错误给出可回灌的确定性错误。
+
 **文件：**
 - 创建：`src/actions.py`
 - 创建：`tests/unit/test_actions.py`
@@ -782,6 +793,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ---
 
 ### 任务 5：工具注册表 + 文件工具
+
+**目标：** 实现工具注册/分发机制和受项目目录限制的文件读写工具，为主循环执行 action 提供基础能力。
 
 **文件：**
 - 创建：`src/tools/registry.py`
@@ -1008,6 +1021,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 任务 6：Shell 工具
 
+**目标：** 实现带工作目录、超时、stdout/stderr 捕获和耗时记录的 shell 工具，使测试、lint、git 等命令可被统一执行。
+
 **文件：**
 - 创建：`src/tools/shell.py`
 - 修改：`tests/unit/test_tools.py`（追加 shell 测试）
@@ -1037,7 +1052,7 @@ class TestShellTool:
         assert result.error is not None
 
     def test_shell_超时(self, temp_project):
-        action = Action(type="shell", params={"command": "sleep 10"}, raw="")
+        action = Action(type="shell", params={"command": "python -c \"import time; time.sleep(10)\""}, raw="")
         # 测试用短超时
         result = shell_handler(action, str(temp_project), timeout_sec=1)
         assert result.success is False
@@ -1120,6 +1135,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ---
 
 ### 任务 7：护栏规则
+
+**目标：** 实现内置护栏规则，明确直接拦截、需人工审批和安全放行三类判定。
 
 **文件：**
 - 创建：`src/guardrails/rules.py`
@@ -1397,6 +1414,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 任务 8：护栏链 + 配置加载器
 
+**目标：** 实现按顺序执行的护栏链和 YAML 配置加载器，让规则启停与默认运行参数由 `config.yaml` 控制。
+
 **文件：**
 - 创建：`src/guardrails/chain.py`
 - 创建：`src/config.py`
@@ -1602,6 +1621,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ---
 
 ### 任务 9：反馈解析器
+
+**目标：** 将工具结果解析为结构化反馈信号，使测试失败、lint 错误和普通退出码都能被主循环回灌给 LLM。
 
 **文件：**
 - 创建：`src/feedback.py`
@@ -1823,6 +1844,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 任务 10：记忆系统
 
+**目标：** 实现会话内 Trace 摘要和项目级文本记忆，支持最近步骤注入与简单关键词检索。
+
 **文件：**
 - 创建：`src/memory.py`
 - 创建：`tests/unit/test_memory.py`
@@ -1996,6 +2019,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ---
 
 ### 任务 11：Agent 主循环
+
+**目标：** 串联 LLM、ActionParser、GuardrailChain、ToolRegistry、FeedbackParser 和 Memory，形成可用 mock LLM 确定性验证的完整 agent 循环。
+
+**颗粒度说明：** 本任务是集成任务，允许一个 subagent 单会话完成，但应按测试用例逐步实现：先停机/最大步数，再护栏拦截回灌，再工具执行与反馈回灌，最后异常处理。
 
 **文件：**
 - 创建：`src/loop.py`
@@ -2362,6 +2389,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 任务 12：HITL 控制台
 
+**目标：** 实现需要审批时的人工确认流程，使 `requires_approval=True` 的动作能被允许、拒绝或查看详情。
+
 **文件：**
 - 创建：`src/guardrails/hitl.py`
 - 修改：`tests/unit/test_guardrails.py`（追加 HITL 测试）
@@ -2474,6 +2503,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 任务 13：CLI 入口 + REPL
 
+**目标：** 提供 `harness` 命令、单次任务模式和最小 REPL，使用户可在终端观察 agent 的每一步执行摘要。
+
+**测试要求：** 本任务不能只做导入验证；必须先写 CLI smoke test，验证 `--help`、单次任务入口和 REPL 命令解析至少一个行为。
+
 **文件：**
 - 创建：`src/cli/main.py`
 - 创建：`src/cli/repl.py`
@@ -2482,7 +2515,30 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - 消费：任务 2-12 的所有核心模块
 - 产出：`harness` CLI 命令，支持 REPL 模式和 `--task` 单次任务模式
 
-- [ ] **步骤 1：实现 `src/cli/repl.py`**
+- [ ] **步骤 1：写失败测试 `tests/unit/test_cli.py`**
+
+```python
+import subprocess
+import sys
+
+
+def test_cli_help_可运行():
+    result = subprocess.run(
+        [sys.executable, "-m", "src.cli.main", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "Coding Agent Harness" in result.stdout
+    assert "--task" in result.stdout
+```
+
+- [ ] **步骤 2：运行测试确认失败**
+
+运行：`pytest tests/unit/test_cli.py -v`
+预期：FAIL，`ModuleNotFoundError` 或 CLI 入口不存在
+
+- [ ] **步骤 3：实现 `src/cli/repl.py`**
 
 ```python
 import sys
@@ -2622,7 +2678,7 @@ class REPL:
         return ScriptedMockLLM([Action(type="stop", params={"summary": "未配置 LLM"}, raw="")])
 ```
 
-- [ ] **步骤 2：实现 `src/cli/main.py`**
+- [ ] **步骤 4：实现 `src/cli/main.py`**
 
 ```python
 import argparse
@@ -2654,15 +2710,18 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **步骤 3：验证 CLI 可导入**
+- [ ] **步骤 5：验证 CLI 可导入并通过 smoke test**
 
 运行：`python -c "from src.cli.main import main; print('OK')"`
 预期：`OK`（可能警告缺少 openai 模块——暂时没问题）
 
-- [ ] **步骤 4：提交**
+运行：`pytest tests/unit/test_cli.py -v`
+预期：PASS
+
+- [ ] **步骤 6：提交**
 
 ```bash
-git add src/cli/main.py src/cli/repl.py
+git add src/cli/main.py src/cli/repl.py tests/unit/test_cli.py
 git commit -m "feat: CLI 入口 + REPL 交互循环
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
@@ -2671,6 +2730,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ---
 
 ### 任务 14：OpenAI LLM 适配器
+
+**目标：** 实现 OpenAI 兼容 API 适配器，使用凭据模块读取 key，并通过 mock client 测试请求构造与返回解析。
 
 **文件：**
 - 创建：`src/llm/openai.py`
@@ -2808,6 +2869,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 任务 15：凭据管理
 
+**目标：** 实现 keyring 主方案和环境变量 fallback，保证 API key 可安全录入、查询状态和清除且不回显明文。
+
 **文件：**
 - 创建：`src/cli/key.py`
 - 创建：`tests/unit/test_key.py`
@@ -2931,6 +2994,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 任务 16：WebUI
 
+**目标：** 提供只读 Trace/Demo 查看器，满足课程交付中的可访问 WebUI 接口要求，但不实现完整交互式编程。
+
+**测试要求：** 必须先写 FastAPI `TestClient` 失败测试，验证 `/` 返回 HTML、`/api/demo` 返回 Trace JSON、`/api/demo/guardrail` 返回护栏示例。
+
 **文件：**
 - 创建：`src/web/server.py`
 - 创建：`src/web/templates/index.html`
@@ -2939,7 +3006,36 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - 消费：无（独立 demo 服务器）
 - 产出：FastAPI Web 服务器，端口 8080，trace 查看器 + demo 触发
 
-- [ ] **步骤 1：实现 `src/web/server.py`**
+- [ ] **步骤 1：写失败测试 `tests/unit/test_web.py`**
+
+```python
+from fastapi.testclient import TestClient
+from src.web.server import app
+
+
+def test_index_返回_html():
+    client = TestClient(app)
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Harness Demo" in response.text
+
+
+def test_demo_返回_trace_json():
+    client = TestClient(app)
+    response = client.get("/api/demo")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["task"]
+    assert isinstance(data["steps"], list)
+    assert data["steps"][0]["action"]["type"] == "shell"
+```
+
+- [ ] **步骤 2：运行测试确认失败**
+
+运行：`pytest tests/unit/test_web.py -v`
+预期：FAIL，`ModuleNotFoundError` 或 endpoint 不存在
+
+- [ ] **步骤 3：实现 `src/web/server.py`**
 
 ```python
 import json
@@ -3057,7 +3153,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **步骤 2：实现 `src/web/templates/index.html`**
+- [ ] **步骤 4：实现 `src/web/templates/index.html`**
 
 ```html
 <!DOCTYPE html>
@@ -3127,15 +3223,18 @@ function renderTrace(trace) {
 </html>
 ```
 
-- [ ] **步骤 3：验证 WebUI 可启动**
+- [ ] **步骤 5：验证 WebUI 可启动并通过 endpoint 测试**
 
 运行：`python -c "from src.web.server import app; print('OK')"`
 预期：`OK`
 
-- [ ] **步骤 4：提交**
+运行：`pytest tests/unit/test_web.py -v`
+预期：PASS
+
+- [ ] **步骤 6：提交**
 
 ```bash
-git add src/web/server.py src/web/templates/index.html
+git add src/web/server.py src/web/templates/index.html tests/unit/test_web.py
 git commit -m "feat: 最小 WebUI——Trace 查看器 + demo 触发按钮
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
@@ -3144,6 +3243,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ---
 
 ### 任务 17：机制演示
+
+**目标：** 用三个 pytest demo 展示核心机制：危险命令拦截、反馈闭环驱动修复、护栏与反馈协同。
+
+**颗粒度说明：** 若使用 subagent 并行执行，可拆成 17a/17b/17c 三个 worktree；若单会话执行，必须逐个 demo 红绿验证。
 
 **文件：**
 - 创建：`tests/demo/demo_guardrail.py`
@@ -3367,12 +3470,17 @@ class TestDemoFocusDimension:
         print("\n✅ Demo 3 通过: 护栏 + 反馈协同——危险动作被拦截，agent 转向安全替代方案")
 ```
 
-- [ ] **步骤 4：运行全部 demo**
+- [ ] **步骤 4：先运行全部 demo 确认失败**
+
+运行：`pytest tests/demo/ -v`
+预期：FAIL，demo 文件或依赖模块尚未存在时失败
+
+- [ ] **步骤 5：运行全部 demo 确认通过**
 
 运行：`pytest tests/demo/ -v`
 预期：3 个测试 PASS
 
-- [ ] **步骤 5：提交**
+- [ ] **步骤 6：提交**
 
 ```bash
 git add tests/demo/
@@ -3385,6 +3493,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 任务 18：Docker 分发
 
+**目标：** 构建可分发镜像，并验证容器内 CLI 帮助可启动。
+
+**测试要求：** 本任务以 Docker smoke test 作为红绿验证；实现前 `Dockerfile` 不存在时 `docker build` 应失败，写入后应成功。
+
 **文件：**
 - 创建：`Dockerfile`
 
@@ -3392,7 +3504,12 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - 消费：所有代码
 - 产出：可运行的 Docker 镜像
 
-- [ ] **步骤 1：实现 `Dockerfile`**
+- [ ] **步骤 1：运行构建确认失败**
+
+运行：`docker build -t harness .`
+预期：FAIL，`Dockerfile` 不存在或镜像无法构建
+
+- [ ] **步骤 2：实现 `Dockerfile`**
 
 ```dockerfile
 FROM python:3.11-slim AS builder
@@ -3412,17 +3529,17 @@ ENV HARNESS_API_KEY=""
 ENTRYPOINT ["python", "-m", "src.cli.main"]
 ```
 
-- [ ] **步骤 2：验证 Dockerfile 可构建**
+- [ ] **步骤 3：验证 Dockerfile 可构建**
 
 运行：`docker build -t harness .`
 预期：构建成功
 
-- [ ] **步骤 3：验证 Docker 可运行**
+- [ ] **步骤 4：验证 Docker 可运行**
 
 运行：`docker run --rm harness --help`
 预期：显示帮助信息
 
-- [ ] **步骤 4：提交**
+- [ ] **步骤 5：提交**
 
 ```bash
 git add Dockerfile
@@ -3435,6 +3552,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 任务 19：CI/CD
 
+**目标：** 提供 GitLab CI 配置，明确 `unit-test` job 在 Python 3.11 环境中运行单元测试和 demo。
+
+**测试要求：** 先写 YAML smoke check，验证文件合法且含 `unit-test`、`pytest tests/unit/`、`pytest tests/demo/`。
+
 **文件：**
 - 创建：`.gitlab-ci.yml`
 
@@ -3442,7 +3563,30 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - 消费：所有测试
 - 产出：包含 `unit-test` job 的 CI pipeline
 
-- [ ] **步骤 1：实现 `.gitlab-ci.yml`**
+- [ ] **步骤 1：写失败测试 `tests/unit/test_ci_config.py`**
+
+```python
+from pathlib import Path
+
+import yaml
+
+
+def test_gitlab_ci_包含_unit_test_job():
+    path = Path(".gitlab-ci.yml")
+    assert path.exists()
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert "unit-test" in data
+    script = "\n".join(data["unit-test"]["script"])
+    assert "pytest tests/unit/" in script
+    assert "pytest tests/demo/" in script
+```
+
+- [ ] **步骤 2：运行测试确认失败**
+
+运行：`pytest tests/unit/test_ci_config.py -v`
+预期：FAIL，`.gitlab-ci.yml` 不存在
+
+- [ ] **步骤 3：实现 `.gitlab-ci.yml`**
 
 ```yaml
 unit-test:
@@ -3454,15 +3598,18 @@ unit-test:
     - pytest tests/demo/ -v --tb=short
 ```
 
-- [ ] **步骤 2：验证 CI 配置是合法 YAML**
+- [ ] **步骤 4：验证 CI 配置是合法 YAML 并通过 smoke test**
 
 运行：`python -c "import yaml; yaml.safe_load(open('.gitlab-ci.yml')); print('OK')"`
 预期：`OK`
 
-- [ ] **步骤 3：提交**
+运行：`pytest tests/unit/test_ci_config.py -v`
+预期：PASS
+
+- [ ] **步骤 5：提交**
 
 ```bash
-git add .gitlab-ci.yml
+git add .gitlab-ci.yml tests/unit/test_ci_config.py
 git commit -m "feat: CI 配置——unit-test job
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
@@ -3472,6 +3619,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 任务 20：README
 
+**目标：** 编写面向课程评审者和开发者的项目文档，覆盖安装、运行、测试、Docker、凭据安全、架构和已知限制。
+
+**测试要求：** README 也要有文档 smoke test，确保关键命令、威胁模型和核心设计决策没有漏写。
+
 **文件：**
 - 创建：`README.md`
 
@@ -3479,7 +3630,28 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - 消费：无
 - 产出：完整项目文档
 
-- [ ] **步骤 1：实现 `README.md`**
+- [ ] **步骤 1：写失败测试 `tests/unit/test_readme.py`**
+
+```python
+from pathlib import Path
+
+
+def test_readme_包含关键章节和命令():
+    text = Path("README.md").read_text(encoding="utf-8")
+    assert "Coding Agent Harness" in text
+    assert "pip install -e .[dev]" in text
+    assert "python -m src.cli.main" in text
+    assert "docker build -t harness ." in text
+    assert "威胁模型" in text
+    assert "机制是代码，不是提示词" in text
+```
+
+- [ ] **步骤 2：运行测试确认失败**
+
+运行：`pytest tests/unit/test_readme.py -v`
+预期：FAIL，README 缺少关键内容
+
+- [ ] **步骤 3：实现 `README.md`**
 
 ```markdown
 # Coding Agent Harness
@@ -3587,10 +3759,15 @@ tests/
 - WebUI：只读 demo 查看器；完整交互在 CLI/REPL 中
 ```
 
-- [ ] **步骤 2：提交**
+- [ ] **步骤 4：运行 README smoke test 确认通过**
+
+运行：`pytest tests/unit/test_readme.py -v`
+预期：PASS
+
+- [ ] **步骤 5：提交**
 
 ```bash
-git add README.md
+git add README.md tests/unit/test_readme.py
 git commit -m "docs: README——安装、使用、安全、架构说明
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
@@ -3617,16 +3794,19 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
                 │    └─▶ 任务 15（凭据管理）
                 ├─▶ 任务 14（OpenAI 适配器）
                 └─▶ 任务 17（机制演示）
-                     ├─▶ 任务 16（WebUI）[可并行]
-                     ├─▶ 任务 18（Docker）[可并行]
-                     ├─▶ 任务 19（CI）[可并行]
-                     └─▶ 任务 20（README）[可并行]
+                     ├─▶ 任务 16（WebUI）[静态 demo 可并行；消费真实 Trace 时需等 17]
+                     ├─▶ 任务 18（Docker）[需等 CLI 可运行]
+                     ├─▶ 任务 19（CI）[需等 unit/demo 测试存在]
+                     └─▶ 任务 20（README）[最后同步实际命令与限制]
 ```
 
 **可并行组：**
 - 任务 2 完成后，任务 3、4、5、7、9、10 可并行
-- 任务 13 完成后，任务 14、16 可并行
-- 末尾任务 18、19、20 可并行
+- 任务 5 完成后，任务 6 可开始；任务 7 完成后，任务 8 可开始；任务 8 完成后，任务 12 可开始
+- 任务 3、4、5、6、8、9、10 全部完成后，任务 11 可开始
+- 任务 11 完成后，任务 13、14、17 可并行；任务 13 完成后，任务 15 与任务 18 可开始
+- 任务 16 若只做静态 demo，可在任务 13 后并行；若要消费真实 demo Trace，等任务 17 完成
+- 任务 19 等 `tests/unit/` 与 `tests/demo/` 都存在后执行；任务 20 放在最后，确保 README 与实际命令一致
 
 ---
 
@@ -3643,4 +3823,6 @@ pytest tests/demo/ -v
 
 # 全套
 make test
+# Windows fallback
+python -m pytest tests/unit/ -v
 ```

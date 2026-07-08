@@ -135,6 +135,8 @@ Agent = LLM + Harness。LLM 是"CPU"，只负责决定下一步做什么；harne
 | `FileWriteGate` | `write_file` 且目标文件已存在 | 命中 → `requires_approval=True` |
 | `DestructiveOp` | `shell` 命令包含 `rm`、`mv`、`del` | 命中 → `requires_approval=True` |
 
+**规则优先级**：`allowed=False` 的直接拦截规则优先于审批规则。例如 `rm -rf /` 同时命中 `DangerousCmd` 与 `DestructiveOp` 时，最终判定必须是 `allowed=False`，不进入审批；`rm -r ./cache/` 未命中直接拦截模式时，才由 `DestructiveOp` 判定为 `requires_approval=True`。
+
 **HITL 控制台**：当 `requires_approval=True` 时，REPL 暂停并显示：
 - 被拦截的 Action 详情
 - 命中的规则名称和原因
@@ -283,6 +285,14 @@ memory:
 - 日志：`logging` 模块，INFO 级别记录 step 摘要，DEBUG 级别记录完整上下文
 - Trace：所有 Step 组成 Trace，可导出为 JSON
 - WebUI：Trace 可视化时间线
+
+### 4.5 平台与验证约束
+
+- 基准运行环境：Python 3.11；实现应兼容 Python 3.11+，但 CI 与 Docker 以 3.11 为准。
+- 本地开发允许在 Python 3.12/3.13 上运行；若出现版本差异，以 Python 3.11 的 CI 结果为最终验收依据。
+- Windows 环境可能没有 `make`、`sleep`、`rm` 等 Unix 命令；所有计划中的 `make test` 必须提供等价 fallback：`python -m pytest tests/unit/ -v`。
+- 单元测试中需要等待或超时行为时，不依赖 `sleep` 命令；使用 `python -c "import time; time.sleep(10)"` 这类跨平台命令。
+- WebUI 是只读 Trace/Demo 查看器，不承担真实交互式编程能力；CLI/REPL 是主交互入口。
 
 ---
 
@@ -489,9 +499,10 @@ Coding 领域的危险动作包括：
 | 反馈闭环 | 注入一次测试失败，agent 的下一步动作确实变为修复（而非其他） |
 | Mock LLM 测试 | 全量单测通过，不依赖网络和真实 LLM |
 | 凭据安全 | key 存入 keyring，`key status` 不回显，`.env` 在 `.gitignore` 中 |
-| 分发 | `docker build && docker run` 可启动 REPL |
-| 机制演示 | 三个演示场景可重复运行并产出确定性结果 |
-| CI | `.gitlab-ci.yml` 中 `unit-test` job 通过 |
+| 分发 | `docker build -t harness .` 成功，且 `docker run --rm harness --help` 输出 CLI 帮助 |
+| 机制演示 | `python -m pytest tests/demo/ -v` 下三个演示场景可重复运行并产出确定性结果 |
+| WebUI | `python -c "from src.web.server import app; print('OK')"` 输出 `OK`，`/api/demo` 返回 Trace JSON |
+| CI | `.gitlab-ci.yml` 中存在 `unit-test` job，且 job 执行 `pytest tests/unit/` 与 `pytest tests/demo/` |
 
 ---
 
@@ -505,6 +516,7 @@ Coding 领域的危险动作包括：
 | 护栏规则过于严格 | 正常命令被拦截 | 白名单机制（`pytest`、`ruff` 等自动放行），用户可调整 |
 | Docker 中 keyring 不可用 | 容器无法读取凭据 | 环境变量 fallback + README 说明风险 |
 | WebUI 开发超时 | 交付清单不完整 | WebUI 定死为只读 Trace 查看 + demo 按钮，不做交互 |
+| Windows 环境缺少 Unix 工具 | `make test`、`sleep` 等命令无法运行 | PLAN 中为验证命令提供 `python -m pytest` 和 Python 脚本形式的跨平台 fallback |
 
 ---
 
