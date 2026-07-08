@@ -78,3 +78,33 @@ class TestFileTools:
         result = write_file(action, str(temp_project))
         assert result.success is False
         assert "目录外" in result.error
+
+
+import time
+from src.tools.shell import shell_handler
+
+
+class TestShellTool:
+    def test_shell_成功执行(self, temp_project):
+        action = Action(type="shell", params={"command": "echo hello"}, raw="")
+        result = shell_handler(action, str(temp_project))
+        assert result.success is True
+        assert "hello" in result.output
+
+    def test_shell_命令失败(self, temp_project):
+        action = Action(type="shell", params={"command": "nonexistent_command_xyz"}, raw="")
+        result = shell_handler(action, str(temp_project))
+        assert result.success is False
+        assert result.error is not None
+
+    def test_shell_超时(self, temp_project):
+        action = Action(type="shell", params={"command": "python -c \"import time; time.sleep(10)\""}, raw="")
+        # 测试用短超时
+        result = shell_handler(action, str(temp_project), timeout_sec=1)
+        assert result.success is False
+        assert "timeout" in result.error.lower()
+
+    def test_shell_记录执行耗时(self, temp_project):
+        action = Action(type="shell", params={"command": "echo test"}, raw="")
+        result = shell_handler(action, str(temp_project))
+        assert result.duration_ms > 0
