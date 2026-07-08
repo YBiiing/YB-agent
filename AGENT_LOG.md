@@ -160,6 +160,19 @@
 
 ---
 
+## Task 12: HITL 控制台
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development + using-git-worktrees
+- **Commit：** `652dc97`（worktree `task-12-hitl`）
+- **测试结果：** 27/27 passed
+- **Review 结果：** Spec ✅, Quality Approved
+- **Minor 问题：** 缺少末尾换行
+- **人工干预：** 无
+- **教训：** 无，干净的任务
+
+---
+
 ## 流程偏离记录
 
 | 偏离 | 原因 | 影响 |

@@ -2387,7 +2387,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 12：HITL 控制台
+### 任务 12：HITL 控制台 ✅ — `652dc97`
 
 **目标：** 实现需要审批时的人工确认流程，使 `requires_approval=True` 的动作能被允许、拒绝或查看详情。
 
