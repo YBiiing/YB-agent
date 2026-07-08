@@ -103,6 +103,21 @@
 
 ---
 
+## Task 8: 护栏链 + 配置加载器
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development + using-git-worktrees
+- **Commit：** `1030193`（worktree `task-8-chain`）
+- **Subagent 类型：** implementer (general-purpose) + reviewer (general-purpose)
+- **测试结果：** 25 passed, 0 failed
+- **Review 结果：** Spec ✅, Quality Approved
+- **Important 问题：** `_deep_merge` 会原地修改 defaults dict，多次 load 会污染默认值（继承自 brief 的 bug）
+- **Minor 问题：** 缺少末尾换行
+- **人工干预：** 无
+- **教训：** brief 的 chain 代码与测试存在矛盾（禁用规则测试期望非空 rule_name），implementer 正确处理
+
+---
+
 ## 流程偏离记录
 
 | 偏离 | 原因 | 影响 |
