@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.whl
+
+# 虚拟环境
+venv/
+.venv/
+.envrc
+
+# 凭据 & 环境变量
+.env
+
+# Harness 运行时
+.harness/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 测试
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# AI 生成的个人参考文件
+.claude/
+.agents/
+.codex/
+docs/ignore
