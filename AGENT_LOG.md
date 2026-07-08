@@ -146,6 +146,20 @@
 
 ---
 
+## Task 11: Agent 主循环
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development + using-git-worktrees
+- **Commit：** `40557da`（worktree `task-11-loop`）
+- **Subagent 类型：** implementer (general-purpose) + reviewer (general-purpose)
+- **测试结果：** 4 passed, 0 failed（全量 61/61）
+- **Review 结果：** Spec ✅, Quality Approved
+- **Important 问题：** `result.output[:500]` 在 output=None 时会 TypeError；同步 dispatch 阻塞事件循环（均继承自 brief）
+- **人工干预：** 无
+- **教训：** 集成任务要特别注意 brief 的模板代码是否有隐藏 bug
+
+---
+
 ## 流程偏离记录
 
 | 偏离 | 原因 | 影响 |

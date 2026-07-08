@@ -2018,7 +2018,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 11：Agent 主循环
+### 任务 11：Agent 主循环 ✅ — `40557da`
 
 **目标：** 串联 LLM、ActionParser、GuardrailChain、ToolRegistry、FeedbackParser 和 Memory，形成可用 mock LLM 确定性验证的完整 agent 循环。
 
