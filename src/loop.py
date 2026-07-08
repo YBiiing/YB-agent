@@ -1,6 +1,6 @@
 import time
 import json
-from src.models import Action, ToolResult, GuardrailDecision, Step, Trace, Message
+from src.models import Message, Step, Trace
 from src.llm.base import LLMClient
 from src.tools.registry import ToolRegistry
 from src.guardrails.chain import GuardrailChain
@@ -20,6 +20,7 @@ class AgentLoop:
         memory: Memory,
         project_dir: str,
         max_steps: int = 20,
+        hitl=None,
     ):
         self._llm = llm
         self._tools = tools
@@ -29,6 +30,7 @@ class AgentLoop:
         self._memory = memory
         self._project_dir = project_dir
         self._max_steps = max_steps
+        self._hitl = hitl
 
     async def run(self, task: str) -> Trace:
         trace = Trace(task=task, steps=[], start_time=time.time(), end_time=None)
@@ -71,24 +73,30 @@ class AgentLoop:
                 continue
 
             if guardrail.requires_approval:
-                # HITL：在 mock/单元测试模式下，自动拒绝以保持确定性
-                # 在真实 REPL 中，会调用 hitl.prompt()
-                step = Step(
-                    index=step_index,
-                    action=action,
-                    guardrail=guardrail,
-                    result=None,
-                    feedback=None,
-                    timestamp=timestamp,
-                )
-                trace.steps.append(step)
-                self._memory.add_step(step)
-                messages.append(Message(role="assistant", content=llm_text))
-                messages.append(Message(
-                    role="system",
-                    content=f"[护栏需审批] {guardrail.reason}。动作未执行（非交互模式下自动拒绝）。",
-                ))
-                continue
+                # HITL：如果提供了回调则调用，否则自动拒绝
+                approved = False
+                if self._hitl is not None:
+                    approved = self._hitl.prompt(action, guardrail)
+
+                if not approved:
+                    step = Step(
+                        index=step_index,
+                        action=action,
+                        guardrail=guardrail,
+                        result=None,
+                        feedback=None,
+                        timestamp=timestamp,
+                    )
+                    trace.steps.append(step)
+                    self._memory.add_step(step)
+                    messages.append(Message(role="assistant", content=llm_text))
+                    reject_reason = "用户拒绝" if self._hitl else "非交互模式下自动拒绝"
+                    messages.append(Message(
+                        role="system",
+                        content=f"[护栏需审批] {guardrail.reason}。动作未执行（{reject_reason}）。",
+                    ))
+                    continue
+                # 审批通过，继续执行工具
 
             # 4. 执行工具
             if action.type == "stop":
@@ -108,6 +116,12 @@ class AgentLoop:
 
             # 5. 解析反馈
             fb = self._feedback.parse(result)
+
+            # Memory 追踪
+            if fb.status in ("fail", "error"):
+                self._memory.increment_failure()
+            if action.type == "write_file" and result.success:
+                self._memory.mark_file_modified(action.params.get("path", ""))
 
             # 6. 记录 step
             step = Step(

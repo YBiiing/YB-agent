@@ -85,7 +85,10 @@ class FileWriteGate:
         if action.type != "write_file":
             return GuardrailDecision(allowed=True, reason="", rule_name="FileWriteGate", requires_approval=False)
         path = action.params.get("path", "")
-        if Path(path).exists():
+        p = Path(path)
+        if not p.is_absolute():
+            p = Path(project_dir) / path
+        if p.exists():
             return GuardrailDecision(
                 allowed=True,
                 reason=f"覆盖已有文件: {path}",

@@ -1,5 +1,4 @@
-import sys
-from src.models import Action, Message
+from src.models import Action
 from src.llm.mock import ScriptedMockLLM
 from src.tools.registry import ToolRegistry
 from src.tools.files import read_file, write_file
@@ -88,6 +87,7 @@ class REPL:
             memory=memory,
             project_dir=self._project_dir,
             max_steps=self._config["loop"]["max_steps"],
+            hitl=HITLConsole(),
         )
 
         import asyncio

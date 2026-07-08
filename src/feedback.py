@@ -1,5 +1,5 @@
 import re
-from src.models import Action, ToolResult, FeedbackSignal
+from src.models import ToolResult, FeedbackSignal
 
 
 class FeedbackParser:
