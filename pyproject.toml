@@ -1,0 +1,24 @@
+[project]
+name = "harness"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.0.0",
+    "keyring>=24.0.0",
+    "pyyaml>=6.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.scripts]
+harness = "src.cli.main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
