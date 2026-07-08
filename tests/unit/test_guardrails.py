@@ -120,3 +120,61 @@ class TestDestructiveOp:
         action = Action(type="shell", params={"command": "pytest"}, raw="")
         decision = rule.check(action, str(temp_project))
         assert decision.requires_approval is False
+
+
+from src.guardrails.chain import GuardrailChain
+
+
+class TestGuardrailChain:
+    def test_首个规则拦截即停止后续(self, temp_project):
+        chain = GuardrailChain()
+        chain.add_rule(PathSandbox())
+        chain.add_rule(DangerousCmd())
+        action = Action(type="write_file", params={"path": "../etc/passwd"}, raw="")
+        decision = chain.check(action, str(temp_project))
+        assert decision.allowed is False
+        assert decision.rule_name == "PathSandbox"
+
+    def test_全部规则通过则放行(self, temp_project):
+        chain = GuardrailChain()
+        chain.add_rule(PathSandbox())
+        chain.add_rule(DangerousCmd())
+        action = Action(type="shell", params={"command": "pytest"}, raw="")
+        decision = chain.check(action, str(temp_project))
+        assert decision.allowed is True
+        assert decision.requires_approval is False
+
+    def test_需审批信号透传(self, temp_project):
+        chain = GuardrailChain()
+        chain.add_rule(DangerousCmd())  # 通过
+        chain.add_rule(DestructiveOp())  # 需审批
+        action = Action(type="shell", params={"command": "rm cache.txt"}, raw="")
+        decision = chain.check(action, str(temp_project))
+        assert decision.allowed is True
+        assert decision.requires_approval is True
+        assert decision.rule_name == "DestructiveOp"
+
+    def test_拦截优先于审批(self, temp_project):
+        chain = GuardrailChain()
+        chain.add_rule(DangerousCmd())  # 拦截
+        chain.add_rule(DestructiveOp())  # 本应审批
+        action = Action(type="shell", params={"command": "rm -rf /"}, raw="")
+        decision = chain.check(action, str(temp_project))
+        assert decision.allowed is False
+        assert decision.rule_name == "DangerousCmd"
+
+    def test_禁用规则被跳过(self, temp_project):
+        chain = GuardrailChain()
+        chain.add_rule(DangerousCmd(), enabled=False)
+        chain.add_rule(PathSandbox())
+        action = Action(type="shell", params={"command": "rm -rf /"}, raw="")
+        decision = chain.check(action, str(temp_project))
+        # DangerousCmd 被禁用，PathSandbox 对 shell 动作放行
+        assert decision.allowed is True
+        assert decision.rule_name == "PathSandbox"
+
+    def test_空链全部放行(self, temp_project):
+        chain = GuardrailChain()
+        action = Action(type="shell", params={"command": "rm -rf /"}, raw="")
+        decision = chain.check(action, str(temp_project))
+        assert decision.allowed is True
