@@ -1019,7 +1019,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 6：Shell 工具
+### 任务 6：Shell 工具 ✅ — `d15df64`
 
 **目标：** 实现带工作目录、超时、stdout/stderr 捕获和耗时记录的 shell 工具，使测试、lint、git 等命令可被统一执行。
 
