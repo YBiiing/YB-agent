@@ -2501,7 +2501,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 13：CLI 入口 + REPL
+### 任务 13：CLI 入口 + REPL ✅ — `a11f068`
 
 **目标：** 提供 `harness` 命令、单次任务模式和最小 REPL，使用户可在终端观察 agent 的每一步执行摘要。
 
