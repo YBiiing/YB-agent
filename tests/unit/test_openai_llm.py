@@ -41,3 +41,31 @@ class TestOpenAIClient:
             assert call_kwargs["model"] == "test-model"
             assert call_kwargs["max_tokens"] == 500
             assert len(call_kwargs["messages"]) == 2
+
+
+class TestGetApiKey:
+    def test_从环境变量获取key(self):
+        client = OpenAIClient(model="gpt-4o-mini", base_url="https://api.test.com/v1", max_tokens=100)
+        with patch.dict("os.environ", {"HARNESS_API_KEY": "env-key-123"}):
+            assert client._get_api_key() == "env-key-123"
+
+    def test_无可用key时抛出异常(self):
+        client = OpenAIClient(model="gpt-4o-mini", base_url="https://api.test.com/v1", max_tokens=100)
+        with patch.dict("os.environ", {}, clear=True):
+            with pytest.raises(RuntimeError, match="未找到 API key"):
+                client._get_api_key()
+
+    def test_从keyring获取key(self):
+        client = OpenAIClient(model="gpt-4o-mini", base_url="https://api.test.com/v1", max_tokens=100)
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("keyring.get_password", return_value="keyring-key-456"):
+                assert client._get_api_key() == "keyring-key-456"
+
+    def test_从dotenv文件获取key(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        env_file = tmp_path / ".env"
+        env_file.write_text('HARNESS_API_KEY="dotenv-key-789"\n')
+        client = OpenAIClient(model="gpt-4o-mini", base_url="https://api.test.com/v1", max_tokens=100)
+        with patch.dict("os.environ", {}, clear=True):
+            with patch.dict("sys.modules", {"keyring": None}):
+                assert client._get_api_key() == "dotenv-key-789"

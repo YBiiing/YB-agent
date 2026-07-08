@@ -29,7 +29,7 @@ class OpenAIClient(LLMClient):
             key = keyring.get_password("harness", "api_key")
             if key:
                 return key
-        except Exception:
+        except ImportError:
             pass
 
         key = os.environ.get("HARNESS_API_KEY", "")
@@ -43,7 +43,7 @@ class OpenAIClient(LLMClient):
                 for line in env_file.read_text().splitlines():
                     if line.startswith("HARNESS_API_KEY="):
                         return line.split("=", 1)[1].strip().strip('"').strip("'")
-        except Exception:
+        except (OSError, IOError):
             pass
 
         raise RuntimeError(
