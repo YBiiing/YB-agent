@@ -178,3 +178,53 @@ class TestGuardrailChain:
         action = Action(type="shell", params={"command": "rm -rf /"}, raw="")
         decision = chain.check(action, str(temp_project))
         assert decision.allowed is True
+
+
+from unittest.mock import patch
+from src.guardrails.hitl import HITLConsole
+
+
+class TestHITLConsole:
+    def test_批准返回true(self):
+        hitl = HITLConsole()
+        action = Action(type="shell", params={"command": "rm cache.txt"}, raw="")
+        decision = GuardrailDecision(
+            allowed=True, reason="destructive: rm",
+            rule_name="DestructiveOp", requires_approval=True,
+        )
+        with patch("builtins.input", return_value="y"):
+            result = hitl.prompt(action, decision)
+        assert result is True
+
+    def test_拒绝返回false(self):
+        hitl = HITLConsole()
+        action = Action(type="shell", params={"command": "rm cache.txt"}, raw="")
+        decision = GuardrailDecision(
+            allowed=True, reason="destructive: rm",
+            rule_name="DestructiveOp", requires_approval=True,
+        )
+        with patch("builtins.input", return_value="n"):
+            result = hitl.prompt(action, decision)
+        assert result is False
+
+    def test_空输入默认拒绝(self):
+        hitl = HITLConsole()
+        action = Action(type="shell", params={"command": "rm cache.txt"}, raw="")
+        decision = GuardrailDecision(
+            allowed=True, reason="destructive: rm",
+            rule_name="DestructiveOp", requires_approval=True,
+        )
+        with patch("builtins.input", return_value=""):
+            result = hitl.prompt(action, decision)
+        assert result is False
+
+    def test_detail显示详情后再次询问(self):
+        hitl = HITLConsole()
+        action = Action(type="shell", params={"command": "rm -rf ./cache"}, raw="")
+        decision = GuardrailDecision(
+            allowed=True, reason="destructive command",
+            rule_name="DestructiveOp", requires_approval=True,
+        )
+        with patch("builtins.input", side_effect=["detail", "y"]):
+            result = hitl.prompt(action, decision)
+        assert result is True
