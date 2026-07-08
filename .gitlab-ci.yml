@@ -1,0 +1,7 @@
+unit-test:
+  image: python:3.11
+  before_script:
+    - pip install -e .[dev]
+  script:
+    - pytest tests/unit/ -v --tb=short
+    - pytest tests/demo/ -v --tb=short
