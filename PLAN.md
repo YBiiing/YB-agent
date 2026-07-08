@@ -87,7 +87,7 @@ README.md
 
 ---
 
-### 任务 1：项目骨架与配置
+### 任务 1：项目骨架与配置 ✅ — `d4494ea`
 
 **目标：** 建立可安装、可导入、可运行测试命令的最小 Python 项目骨架，为后续所有任务提供包结构、配置文件和示例项目。
 
@@ -302,7 +302,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 2：核心数据模型
+### 任务 2：核心数据模型 ✅ — `33eaf41`
 
 **目标：** 实现所有核心数据对象，使后续 LLM、工具、护栏、反馈、记忆和主循环模块共享同一套类型契约。
 
@@ -491,7 +491,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 3：LLM 抽象层——基类 + Mock
+### 任务 3：LLM 抽象层——基类 + Mock ✅ — `aa72df9`
 
 **目标：** 定义可替换的 LLM 客户端接口，并实现两个确定性 mock LLM，保证核心机制可脱离真实网络和真实 LLM 测试。
 
@@ -658,7 +658,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 4：Action 解析器
+### 任务 4：Action 解析器 ✅ — `ecdcbfe`
 
 **目标：** 将 LLM 的文本输出解析成结构化 `Action`，并对未知工具、缺失参数和 JSON 错误给出可回灌的确定性错误。
 
@@ -792,7 +792,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 5：工具注册表 + 文件工具
+### 任务 5：工具注册表 + 文件工具 ✅ — `0c2fd1c`
 
 **目标：** 实现工具注册/分发机制和受项目目录限制的文件读写工具，为主循环执行 action 提供基础能力。
 

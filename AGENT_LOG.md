@@ -1,0 +1,85 @@
+# AGENT_LOG.md
+
+> Coding Agent Harness 开发过程日志。记录每个 task 的关键节点、subagent 行为、人工干预和学到的教训。
+
+---
+
+## Task 1: 项目骨架与配置
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development
+- **Commit：** `d4494ea`
+- **Subagent 类型：** implementer (general-purpose) + reviewer (general-purpose)
+- **关键决策：** 机械任务，haiku 模型不可用，改用默认模型
+- **测试结果：** pip install 成功，import src 输出 OK
+- **Review 结果：** Spec ✅, Quality Approved
+- **Minor 问题：** 提交中混入了 docs/ignore 文件；部分文件缺末尾换行
+- **人工干预：** 之后手动恢复 .gitignore 到之前版本（commit `eea3ec3`），补充 AI 个人参考文件忽略规则
+- **教训：** task brief 中的 .gitignore 和项目已有的 .gitignore 存在冲突，应该先检查现有文件再覆盖
+
+---
+
+## Task 2: 核心数据模型
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development
+- **Commit：** `33eaf41`
+- **Subagent 类型：** implementer (general-purpose) + reviewer (general-purpose)
+- **测试结果：** 11 passed, 0 failed
+- **Review 结果：** Spec ✅, Quality Approved
+- **Minor 问题：** unused `field` import；缺少末尾换行
+- **人工干预：** 无
+- **教训：** 机械任务 spec 的代码可以直接复制，但 spec 中的小瑕疵（unused import）会被继承
+
+---
+
+## Task 3: LLM 抽象层——基类 + Mock
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development
+- **Commit：** `aa72df9`
+- **Subagent 类型：** implementer (general-purpose) + reviewer (general-purpose)
+- **测试结果：** 6 passed, 0 failed
+- **Review 结果：** Spec ✅, Quality Approved
+- **Minor 问题：** 缺少末尾换行
+- **人工干预：** 无
+- **教训：** ScriptedMockLLM 和 RuleBasedMockLLM 设计简洁，纯确定性实现，非常适合 TDD
+
+---
+
+## Task 4: Action 解析器
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development
+- **Commit：** `ecdcbfe`
+- **Subagent 类型：** implementer (general-purpose) + reviewer (general-purpose)
+- **测试结果：** 6 passed, 0 failed
+- **Review 结果：** Spec ✅, Quality Approved
+- **Minor 问题：** 缺少末尾换行；bare-code-block regex 对嵌套 JSON 有已知局限
+- **人工干预：** 无
+- **教训：** brief 中实现代码用中文错误消息，测试用英文断言——implementer 选择用英文匹配测试，reviewer 认可。brief 自身存在不一致是常见问题
+
+---
+
+## Task 5: 工具注册表 + 文件工具
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development
+- **Commit：** `0c2fd1c`
+- **Subagent 类型：** implementer (general-purpose) + reviewer (general-purpose)
+- **测试结果：** 9 passed, 0 failed (全量 32/32)
+- **Review 结果：** Spec ✅, Quality Approved
+- **Minor 问题：** brief 中测试断言（英文）与实现代码（中文）矛盾，implementer 选择跟随实现代码，修改测试断言为中文匹配
+- **人工干预：** 无
+- **教训：** 当 brief 的测试和实现代码矛盾时，实现代码是 ground truth，测试应匹配实际行为
+
+---
+
+## 流程偏离记录
+
+| 偏离 | 原因 | 影响 |
+|------|------|------|
+| 未使用 worktree | 快速迭代，单分支更简单 | Task 间无隔离，但不影响结果 |
+| 未创建 AGENT_LOG.md | 开发流程未在 task brief 中体现 | 现在补建 |
+| 未更新 PLAN.md 完成状态 | 使用 progress ledger 代替 | 现在补标记 |
+| 未开 PR | 单人开发，无 review 接收者 | 无实际影响 |
