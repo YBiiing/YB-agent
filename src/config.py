@@ -1,3 +1,4 @@
+import copy
 import yaml
 from pathlib import Path
 
@@ -32,7 +33,7 @@ class Config:
 
     @staticmethod
     def load(path: str) -> dict:
-        config = Config.defaults()
+        config = copy.deepcopy(Config.defaults())
         filepath = Path(path)
         if filepath.exists():
             with open(filepath, "r", encoding="utf-8") as f:
