@@ -86,3 +86,49 @@ def test_message_创建():
     msg = Message(role="system", content="你是一个 coding agent")
     assert msg.role == "system"
     assert msg.content == "你是一个 coding agent"
+
+
+import json
+
+
+class TestTraceSerialization:
+    def test_trace_to_dict(self):
+        action = Action(type="shell", params={"command": "pytest"}, raw="")
+        guardrail = GuardrailDecision(allowed=True, reason="", rule_name="", requires_approval=False)
+        result = ToolResult(action=action, success=True, output="2 passed", error=None, duration_ms=100)
+        feedback = FeedbackSignal(status="pass", summary="all good", details=[], suggested_action=None)
+        step = Step(index=0, action=action, guardrail=guardrail, result=result, feedback=feedback, timestamp=1000.0)
+        trace = Trace(task="test task", steps=[step], start_time=1000.0, end_time=2000.0)
+
+        d = trace.to_dict()
+        assert d["task"] == "test task"
+        assert len(d["steps"]) == 1
+        assert d["steps"][0]["action"]["type"] == "shell"
+        assert d["steps"][0]["action"]["params"] == {"command": "pytest"}
+        assert d["steps"][0]["guardrail"]["allowed"] is True
+        assert d["steps"][0]["result"]["success"] is True
+        assert d["steps"][0]["result"]["output"] == "2 passed"
+        assert d["steps"][0]["feedback"]["status"] == "pass"
+        assert d["start_time"] == 1000.0
+        assert d["end_time"] == 2000.0
+
+    def test_trace_to_json(self):
+        action = Action(type="stop", params={"summary": "done"}, raw="")
+        guardrail = GuardrailDecision(allowed=True, reason="", rule_name="", requires_approval=False)
+        step = Step(index=0, action=action, guardrail=guardrail, result=None, feedback=None, timestamp=1000.0)
+        trace = Trace(task="done", steps=[step], start_time=1000.0, end_time=1001.0)
+
+        json_str = trace.to_json()
+        data = json.loads(json_str)
+        assert data["task"] == "done"
+        assert data["steps"][0]["result"] is None
+
+    def test_step_with_none_result_and_feedback(self):
+        action = Action(type="shell", params={"command": "rm -rf /"}, raw="")
+        guardrail = GuardrailDecision(allowed=False, reason="dangerous", rule_name="DangerousCmd", requires_approval=False)
+        step = Step(index=0, action=action, guardrail=guardrail, result=None, feedback=None, timestamp=1000.0)
+
+        d = step.to_dict()
+        assert d["result"] is None
+        assert d["feedback"] is None
+        assert d["guardrail"]["allowed"] is False
