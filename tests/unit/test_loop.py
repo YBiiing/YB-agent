@@ -170,3 +170,72 @@ class TestAgentLoop:
         assert trace.steps[2].action.type == "shell"
         # Step 3: 停机
         assert trace.steps[3].action.type == "stop"
+
+
+class TestAgentLoopRetry:
+    @pytest.mark.asyncio
+    async def test_llm返回空字符串后重试(self, temp_project):
+        """LLM 第一次返回空字符串，重试后返回有效动作。"""
+        mock_llm = ScriptedMockLLM([
+            Action(type="shell", params={"command": ""}, raw=""),
+            Action(type="shell", params={"command": "echo retry_ok"}, raw=""),
+            Action(type="stop", params={"summary": "done"}, raw=""),
+        ])
+
+        tools = ToolRegistry()
+        tools.register("shell", shell_handler, {"command": "str"})
+        tools.register("stop", lambda a, p: None, {})
+
+        guardrails = GuardrailChain()
+        parser = ActionParser()
+        feedback = FeedbackParser()
+        memory = Memory()
+
+        loop = AgentLoop(
+            llm=mock_llm,
+            tools=tools,
+            guardrails=guardrails,
+            parser=parser,
+            feedback=feedback,
+            memory=memory,
+            project_dir=str(temp_project),
+            max_steps=20,
+        )
+
+        trace = await loop.run("test retry")
+        assert len(trace.steps) >= 2
+        assert any(s.action.type == "shell" and "retry_ok" in s.action.params.get("command", "")
+                   for s in trace.steps if s.result is not None)
+
+    @pytest.mark.asyncio
+    async def test_llm返回不可解析文本后重试(self, temp_project):
+        """LLM 第一次返回不可解析文本，重试后返回有效 JSON。"""
+        mock_llm = ScriptedMockLLM([
+            Action(type="invalid_json", params={}, raw="not json at all {{{"),
+            Action(type="shell", params={"command": "echo recovered"}, raw=""),
+            Action(type="stop", params={"summary": "done"}, raw=""),
+        ])
+
+        tools = ToolRegistry()
+        tools.register("shell", shell_handler, {"command": "str"})
+        tools.register("stop", lambda a, p: None, {})
+
+        guardrails = GuardrailChain()
+        parser = ActionParser()
+        feedback = FeedbackParser()
+        memory = Memory()
+
+        loop = AgentLoop(
+            llm=mock_llm,
+            tools=tools,
+            guardrails=guardrails,
+            parser=parser,
+            feedback=feedback,
+            memory=memory,
+            project_dir=str(temp_project),
+            max_steps=20,
+        )
+
+        trace = await loop.run("test retry")
+        assert any(s.result is not None and s.result.success
+                   for s in trace.steps)
