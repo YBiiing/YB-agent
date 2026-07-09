@@ -185,11 +185,174 @@
 
 ---
 
+## Task 14: OpenAI LLM 适配器
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development
+- **Commit：** `086608e`（实现）+ `4a7eda3`（review fix）
+- **Subagent 类型：** implementer (general-purpose) + reviewer (general-purpose)
+- **测试结果：** 4 passed, 0 failed（含 `_get_api_key` 测试）
+- **Review 结果：** Spec ✅, Quality → 窄化异常处理 + 补充 `_get_api_key` 测试
+- **Minor 问题：** 原有异常捕获范围过宽（bare `except Exception`）；`_get_api_key` 缺少独立单元测试
+- **人工干预：** review 后修复了异常处理粒度，补充了 env fallback 测试
+- **教训：** 凭据获取的多级 fallback（keyring → env → .env）需要在每层都有独立测试覆盖
+
+---
+
+## Task 15: 凭据管理
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development
+- **Commit：** `67bbbe3`
+- **Subagent 类型：** implementer (general-purpose) + reviewer (general-purpose)
+- **测试结果：** 4 passed, 0 failed
+- **Review 结果：** Spec ✅, Quality Approved
+- **Minor 问题：** 无
+- **人工干预：** 无
+- **教训：** `keyring` 库的 mock 测试设计简洁——mock `get_password`/`set_password`/`delete_password` 即可覆盖全部路径
+
+---
+
+## Task 16: WebUI
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development
+- **Commit：** `57ebe06`（实现）+ `7acb53f`（review fix）
+- **Subagent 类型：** implementer (general-purpose) + reviewer (general-purpose)
+- **测试结果：** 3 passed, 0 failed（`/`、`/api/demo`、`/api/demo/guardrail`）
+- **Review 结果：** Spec ✅, Quality → 补充 guardrail 测试 + 清理未使用 import
+- **Minor 问题：** 缺 `/api/demo/guardrail` 端点测试；残留未使用的 `json` import
+- **人工干预：** review 后补充了护栏 demo 端点测试，清理了冗余 import
+- **教训：** FastAPI `TestClient` 让 WebUI 测试在无网络环境下确定性地完成——符合"机制必须是代码"原则
+
+---
+
+## Task 17: 机制演示
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development
+- **Commit：** `4a7eda3`（与 Task 14 review fix 同一批次）
+- **Subagent 类型：** implementer (general-purpose)
+- **测试结果：** 3 passed, 0 failed（`demo_guardrail`、`demo_feedback_loop`、`demo_focus_dimension`）
+- **Review 结果：** Spec ✅, Quality Approved
+- **Minor 问题：** 无
+- **人工干预：** 无
+- **教训：** 三个 demo 用 ScriptedMockLLM 确定性地复现了护栏拦截、反馈闭环、护栏+反馈协同——完全满足 A.6 的机制演示要求
+
+---
+
+## Task 18: Docker 分发
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development
+- **Commit：** `67bbbe3`（与 Task 15 同一批次）
+- **Subagent 类型：** implementer (general-purpose)
+- **测试结果：** `docker build -t harness .` 成功；`docker run --rm harness --help` 输出 CLI 帮助
+- **Review 结果：** Spec ✅, Quality Approved
+- **Minor 问题：** 无
+- **人工干预：** 无
+- **教训：** 多阶段 Docker build（builder + runtime）显著减小了最终镜像体积
+
+---
+
+## Task 19: CI/CD
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development
+- **Commit：** `8b72d3d`
+- **Subagent 类型：** implementer (general-purpose) + reviewer (general-purpose)
+- **测试结果：** `test_gitlab_ci_包含_unit_test_job` PASS（YAML 合法 + `unit-test` job 存在 + pytest 命令正确）
+- **Review 结果：** Spec ✅, Quality Approved
+- **Minor 问题：** 无
+- **人工干预：** 无
+- **教训：** CI 配置文件本身也应该有测试（YAML 合法性 + 关键字段检查）——这符合"机制必须是代码"的理念
+
+---
+
+## Task 20: README
+
+- **时间：** 2026-07-08
+- **Superpowers 技能：** subagent-driven-development
+- **Commit：** `20bac8f`
+- **Subagent 类型：** implementer (general-purpose) + reviewer (general-purpose)
+- **测试结果：** `test_readme_包含关键章节和命令` PASS
+- **Review 结果：** Spec ✅, Quality Approved
+- **Minor 问题：** 无
+- **人工干预：** 无
+- **教训：** README 的 smoke test 能防止文档与实际命令脱节——建议对所有文档类交付物都加 smoke test
+
+---
+
+## Gap Fix 1: AGENT_LOG 修复
+
+- **时间：** 2026-07-09
+- **Commit：** `0c1526b`
+- **内容：** 删除 AGENT_LOG.md 中 Task 10 重复条目（第 159-168 行）
+- **教训：** 纯文档修复，无测试影响
+
+---
+
+## Gap Fix 2: Trace JSON 导出 + to_json
+
+- **时间：** 2026-07-09
+- **Commit：** `3f1d17c`
+- **内容：** 为 `Action`、`ToolResult`、`GuardrailDecision`、`FeedbackSignal`、`Step`、`Trace` 添加 `to_dict()` 方法，`Trace` 添加 `to_json()`
+- **测试：** 3 个新增测试（`TestTraceSerialization`），全量 14 passed
+- **教训：** 序列化逻辑应该属于数据模型层，不应散落在 CLI/Web 中
+
+---
+
+## Gap Fix 3: LLM 重试 + logging
+
+- **时间：** 2026-07-09
+- **Commit：** `78cc3f2`
+- **内容：** `AgentLoop` 添加 `_call_llm_with_retry()`（最多重试 1 次）；全局 `print` 替换为 `logging.getLogger(__name__)`
+- **测试：** 2 个新增测试（`TestAgentLoopRetry`），全量 6 passed
+- **教训：** 重试逻辑应区分"空响应"和"网络错误"两类失败，重试前的 system message 提示能有效引导 LLM 重新输出
+
+---
+
+## Gap Fix 4: REPL !trace 存储 + !step 命令
+
+- **时间：** 2026-07-09
+- **Commit：** `2a34bfa`
+- **内容：** REPL 存储 `_last_trace`；`!trace` 显示最近 trace 摘要；`!step N` 查看第 N 步详情
+- **教训：** REPL 中的状态管理（`_last_trace`）是连接 CLI 交互和 harness 内核的最小桥梁
+
+---
+
+## Gap Fix 5: 首次运行引导
+
+- **时间：** 2026-07-09
+- **Commit：** `537beb6`
+- **内容：** `src/cli/main.py` 添加 `_first_run_wizard()`——检测 config.yaml 和 API key，引导用户完成首次设置
+- **教训：** 首次运行体验决定了用户的第一印象——自动创建 config + 引导录入 key 是"开箱即用"的最小要求
+
+---
+
+## Gap Fix 6: Memory 增强
+
+- **时间：** 2026-07-09
+- **Commit：** `5789fb1`
+- **内容：** 新增 `record_decision()`、`record_failure()`、`load_conventions()`；`search()` 扩展为递归搜索 `decisions/` 和 `failures/` 子目录
+- **测试：** 4 个新增测试（`TestMemoryEnhanced`），全量 10 passed
+- **教训：** 语义化目录（decisions/failures）比扁平化文件存储更适合 agent 的长期记忆检索
+
+---
+
+## 最终 Review Fix
+
+- **时间：** 2026-07-08
+- **Commit：** `f39c2f4`
+- **内容：** HITL 注入到 AgentLoop、Memory 追踪（失败计数 + 文件修改）、FileWriteGate project_dir 参数、清理未使用 imports
+- **教训：** 最终 review 应覆盖跨模块的集成问题——HITL 注入和 Memory 追踪都是"模块独立正确但集成缺失"的典型案例
+
+---
+
 ## 流程偏离记录
 
 | 偏离 | 原因 | 影响 |
 |------|------|------|
-| 未使用 worktree | 快速迭代，单分支更简单 | Task 间无隔离，但不影响结果 |
-| 未创建 AGENT_LOG.md | 开发流程未在 task brief 中体现 | 现在补建 |
-| 未更新 PLAN.md 完成状态 | 使用 progress ledger 代替 | 现在补标记 |
+| 未使用 worktree（部分 task） | 快速迭代，单分支更简单 | Task 间无隔离，但不影响结果 |
 | 未开 PR | 单人开发，无 review 接收者 | 无实际影响 |
+| Task 14-20 未单独开 worktree | 后期快速推进，任务粒度小且依赖密 | 已完成且通过测试 |

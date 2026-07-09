@@ -2729,7 +2729,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 14：OpenAI LLM 适配器
+### 任务 14：OpenAI LLM 适配器 ✅ — `086608e`
 
 **目标：** 实现 OpenAI 兼容 API 适配器，使用凭据模块读取 key，并通过 mock client 测试请求构造与返回解析。
 
@@ -2867,7 +2867,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 15：凭据管理
+### 任务 15：凭据管理 ✅ — `67bbbe3`
 
 **目标：** 实现 keyring 主方案和环境变量 fallback，保证 API key 可安全录入、查询状态和清除且不回显明文。
 
@@ -2992,7 +2992,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 16：WebUI
+### 任务 16：WebUI ✅ — `57ebe06`
 
 **目标：** 提供只读 Trace/Demo 查看器，满足课程交付中的可访问 WebUI 接口要求，但不实现完整交互式编程。
 
@@ -3242,7 +3242,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 17：机制演示
+### 任务 17：机制演示 ✅ — `4a7eda3`
 
 **目标：** 用三个 pytest demo 展示核心机制：危险命令拦截、反馈闭环驱动修复、护栏与反馈协同。
 
@@ -3491,7 +3491,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 18：Docker 分发
+### 任务 18：Docker 分发 ✅ — `67bbbe3`
 
 **目标：** 构建可分发镜像，并验证容器内 CLI 帮助可启动。
 
@@ -3550,7 +3550,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 19：CI/CD
+### 任务 19：CI/CD ✅ — `8b72d3d`
 
 **目标：** 提供 GitLab CI 配置，明确 `unit-test` job 在 Python 3.11 环境中运行单元测试和 demo。
 
@@ -3617,7 +3617,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 20：README
+### 任务 20：README ✅ — `20bac8f`
 
 **目标：** 编写面向课程评审者和开发者的项目文档，覆盖安装、运行、测试、Docker、凭据安全、架构和已知限制。
 
