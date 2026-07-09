@@ -21,3 +21,10 @@ class HITLConsole:
                 continue
             else:  # "n"、""、或其他
                 return False
+
+
+class AutoApproveHITL:
+    """Demo 用：自动批准所有审批请求。仅用于演示和测试场景。"""
+
+    def prompt(self, action: Action, decision: GuardrailDecision) -> bool:
+        return True

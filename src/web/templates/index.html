@@ -20,10 +20,11 @@
 </head>
 <body>
 <h1>🛡️ Coding Agent Harness — Demo</h1>
-<p>最小 WebUI，用于 Trace 查看和机制演示。</p>
+<p>以下三个演示均运行<strong>真实的 AgentLoop</strong>（不依赖网络和真实 LLM），每一步的 action/guardrail/result/feedback 均为 agent 实际产出。</p>
 <div>
-  <button onclick="loadDemo('/api/demo')">运行修复 Bug Demo</button>
-  <button onclick="loadDemo('/api/demo/guardrail')">运行护栏 Demo</button>
+  <button onclick="loadDemo('/api/demo')">Demo 1 · 反馈闭环</button>
+  <button onclick="loadDemo('/api/demo/guardrail')">Demo 2 · 护栏拦截</button>
+  <button onclick="loadDemo('/api/demo/focus')">Demo 3 · 护栏+反馈协同</button>
 </div>
 <div id="trace"></div>
 
