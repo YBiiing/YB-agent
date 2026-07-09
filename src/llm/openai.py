@@ -29,7 +29,9 @@ class OpenAIClient(LLMClient):
             key = keyring.get_password("harness", "api_key")
             if key:
                 return key
-        except ImportError:
+        except Exception:
+            # keyring 可能未安装、无后端（CI 环境）或任何其他原因失败
+            # 静默降级到环境变量 / .env fallback
             pass
 
         key = os.environ.get("HARNESS_API_KEY", "")
