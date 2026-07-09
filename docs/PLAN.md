@@ -15,7 +15,7 @@
 - TDD：先写失败测试 → 确认红色 → 实现 → 确认绿色 → 提交
 - 凭据禁止硬编码、禁止进入 Git 历史
 - Docker 分发：`docker build && docker run` 可启动
-- `.gitlab-ci.yml` 必须包含 `unit-test` job
+- `.github/workflows/ci.yml` 必须包含 `unit-test` job
 - 包管理：`pip` + `pyproject.toml`
 - 配置文件：项目根目录 `config.yaml`
 - 记忆目录：`.harness/memory/`
@@ -81,7 +81,7 @@ config.yaml
 pyproject.toml
 Makefile
 Dockerfile
-.gitlab-ci.yml
+.github/workflows/ci.yml
 README.md
 ```
 
@@ -3550,14 +3550,14 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
-### 任务 19：CI/CD ✅ — `8b72d3d`
+### 任务 19：CI/CD ✅ — `4eb1217`
 
-**目标：** 提供 GitLab CI 配置，明确 `unit-test` job 在 Python 3.11 环境中运行单元测试和 demo。
+**目标：** 提供 GitHub Actions CI 配置，明确 `unit-test` job 在 Python 3.11 环境中运行单元测试和 demo。
 
 **测试要求：** 先写 YAML smoke check，验证文件合法且含 `unit-test`、`pytest tests/unit/`、`pytest tests/demo/`。
 
 **文件：**
-- 创建：`.gitlab-ci.yml`
+- 创建：`.github/workflows/ci.yml`
 
 **接口：**
 - 消费：所有测试
@@ -3571,36 +3571,65 @@ from pathlib import Path
 import yaml
 
 
-def test_gitlab_ci_包含_unit_test_job():
-    path = Path(".gitlab-ci.yml")
+def test_github_actions_ci_包含_unit_test_job():
+    path = Path(".github/workflows/ci.yml")
     assert path.exists()
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    assert "unit-test" in data
-    script = "\n".join(data["unit-test"]["script"])
-    assert "pytest tests/unit/" in script
-    assert "pytest tests/demo/" in script
+    assert "jobs" in data
+    assert "unit-test" in data["jobs"]
+    steps = data["jobs"]["unit-test"]["steps"]
+    run_commands = [s["run"] for s in steps if "run" in s]
+    all_runs = "\n".join(run_commands)
+    assert "pytest tests/unit/" in all_runs
+    assert "pytest tests/demo/" in all_runs
 ```
 
 - [ ] **步骤 2：运行测试确认失败**
 
 运行：`pytest tests/unit/test_ci_config.py -v`
-预期：FAIL，`.gitlab-ci.yml` 不存在
+预期：FAIL，`.github/workflows/ci.yml` 不存在
 
-- [ ] **步骤 3：实现 `.gitlab-ci.yml`**
+- [ ] **步骤 3：实现 `.github/workflows/ci.yml`**
 
 ```yaml
-unit-test:
-  image: python:3.11
-  before_script:
-    - pip install -e .[dev]
-  script:
-    - pytest tests/unit/ -v --tb=short
-    - pytest tests/demo/ -v --tb=short
+name: Unit Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+
+      - name: Run unit tests
+        run: pytest tests/unit/ -v --tb=short
+
+      - name: Run mechanism demos
+        run: pytest tests/demo/ -v --tb=short
 ```
 
 - [ ] **步骤 4：验证 CI 配置是合法 YAML 并通过 smoke test**
 
-运行：`python -c "import yaml; yaml.safe_load(open('.gitlab-ci.yml')); print('OK')"`
+运行：`python -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); print('OK')"`
 预期：`OK`
 
 运行：`pytest tests/unit/test_ci_config.py -v`
@@ -3609,8 +3638,8 @@ unit-test:
 - [ ] **步骤 5：提交**
 
 ```bash
-git add .gitlab-ci.yml tests/unit/test_ci_config.py
-git commit -m "feat: CI 配置——unit-test job
+git add .github/workflows/ci.yml tests/unit/test_ci_config.py
+git commit -m "feat: CI 配置——unit-test job (GitHub Actions)
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 ```

@@ -502,7 +502,7 @@ Coding 领域的危险动作包括：
 | 分发 | `docker build -t harness .` 成功，且 `docker run --rm harness --help` 输出 CLI 帮助 |
 | 机制演示 | `python -m pytest tests/demo/ -v` 下三个演示场景可重复运行并产出确定性结果 |
 | WebUI | `python -c "from src.web.server import app; print('OK')"` 输出 `OK`，`/api/demo` 返回 Trace JSON |
-| CI | `.gitlab-ci.yml` 中存在 `unit-test` job，且 job 执行 `pytest tests/unit/` 与 `pytest tests/demo/` |
+| CI | `.github/workflows/ci.yml` 中存在 `unit-test` job，且 job 执行 `pytest tests/unit/` 与 `pytest tests/demo/` |
 
 ---
 
@@ -585,7 +585,7 @@ Coding 领域的危险动作包括：
 ├── pyproject.toml
 ├── Makefile
 ├── Dockerfile
-├── .gitlab-ci.yml
+├── .github/workflows/ci.yml
 ├── .gitignore
 ├── .env.example
 └── README.md
