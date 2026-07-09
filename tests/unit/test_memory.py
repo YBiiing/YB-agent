@@ -70,3 +70,49 @@ class TestMemory:
         assert self.memory.failure_count == 2
         self.memory.reset_failure_count()
         assert self.memory.failure_count == 0
+
+
+class TestMemoryEnhanced:
+    def test_记录决策写入decisions目录(self, temp_project):
+        memory_dir = temp_project / ".harness" / "memory"
+        memory = Memory(project_dir=str(memory_dir))
+
+        memory.record_decision("使用 snake_case", "所有函数和变量使用 snake_case 命名")
+        decisions_dir = memory_dir / "decisions"
+        assert decisions_dir.exists()
+        files = list(decisions_dir.glob("*.md"))
+        assert len(files) == 1
+        content = files[0].read_text(encoding="utf-8")
+        assert "使用 snake_case" in content
+
+    def test_记录失败写入failures目录(self, temp_project):
+        memory_dir = temp_project / ".harness" / "memory"
+        memory = Memory(project_dir=str(memory_dir))
+
+        memory.record_failure("test_add 失败", "将 return a - b 改为 return a + b")
+        failures_dir = memory_dir / "failures"
+        assert failures_dir.exists()
+        files = list(failures_dir.glob("*.md"))
+        assert len(files) == 1
+        content = files[0].read_text(encoding="utf-8")
+        assert "test_add 失败" in content
+
+    def test_加载默认conventions(self, temp_project):
+        memory_dir = temp_project / ".harness" / "memory"
+        memory_dir.mkdir(parents=True)
+        (memory_dir / "conventions.md").write_text("使用 pytest 进行测试", encoding="utf-8")
+
+        memory = Memory(project_dir=str(memory_dir))
+        conventions = memory.load_conventions()
+        assert "使用 pytest 进行测试" in conventions
+
+    def test_搜索包含子目录文件(self, temp_project):
+        memory_dir = temp_project / ".harness" / "memory"
+        memory = Memory(project_dir=str(memory_dir))
+
+        memory.record_decision("使用 pytest", "所有测试用 pytest")
+        memory.record_failure("import error", "缺少 __init__.py")
+
+        results = memory.search("pytest")
+        assert len(results) >= 1
+        assert any("pytest" in r for r in results)
