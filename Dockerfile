@@ -1,6 +1,7 @@
 FROM python:3.11-slim AS builder
 WORKDIR /app
 COPY pyproject.toml .
+COPY src/ src/
 RUN pip install --no-cache-dir -e .[dev]
 
 FROM python:3.11-slim
@@ -11,5 +12,4 @@ COPY src/ src/
 COPY config.yaml .
 COPY examples/ examples/
 
-ENV HARNESS_API_KEY=""
 ENTRYPOINT ["python", "-m", "src.cli.main"]

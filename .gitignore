@@ -6,36 +6,39 @@ dist/
 build/
 *.whl
 
-# 虚拟环境
+# Virtual environments
 venv/
 .venv/
 .envrc
 
-# 凭据 & 环境变量
+# Credentials and environment variables
 .env
 
-# Harness 运行时
+# Harness runtime state
 .harness/
 
-# IDE
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# 测试
+# Tests and coverage
 .pytest_cache/
 .ruff_cache/
-htmlcov/
+.mypy_cache/
 .coverage
+.coverage.*
 coverage.xml
+htmlcov/
 
-# 系统文件
+# System files
 .DS_Store
 Thumbs.db
 
-# AI 生成的个人参考文件
+# Local AI assistant state
 .claude/
 .agents/
 .codex/
+.superpowers/
 docs/ignore/
