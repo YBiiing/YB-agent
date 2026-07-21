@@ -16,9 +16,14 @@ class PathSandbox:
                 requires_approval=False,
             )
         try:
-            resolved = Path(path).resolve()
             project_root = Path(project_dir).resolve()
-            if not str(resolved).startswith(str(project_root)):
+            candidate = Path(path)
+            if not candidate.is_absolute():
+                candidate = project_root / candidate
+            resolved = candidate.resolve()
+            try:
+                resolved.relative_to(project_root)
+            except ValueError:
                 return GuardrailDecision(
                     allowed=False,
                     reason=f"路径在项目目录外: {path}",
@@ -114,3 +119,26 @@ class DestructiveOp:
                     requires_approval=True,
                 )
         return GuardrailDecision(allowed=True, reason="", rule_name="DestructiveOp", requires_approval=False)
+
+
+class AllowedCommand:
+    def __init__(self, allowed_commands: list[str] | None = None):
+        self._allowed_commands = allowed_commands or []
+
+    def check(self, action: Action, project_dir: str) -> GuardrailDecision:
+        if action.type != "shell" or not self._allowed_commands:
+            return GuardrailDecision(
+                allowed=True, reason="", rule_name="AllowedCommand", requires_approval=False
+            )
+        command = action.params.get("command", "").strip()
+        executable = command.split()[0] if command else ""
+        if executable in self._allowed_commands:
+            return GuardrailDecision(
+                allowed=True, reason="", rule_name="AllowedCommand", requires_approval=False
+            )
+        return GuardrailDecision(
+            allowed=True,
+            reason=f"命令不在白名单中: {executable or '<empty>'}",
+            rule_name="AllowedCommand",
+            requires_approval=True,
+        )

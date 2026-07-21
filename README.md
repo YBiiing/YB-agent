@@ -8,6 +8,12 @@
 
 Pipeline: 上下文 → LLM → Action 解析 → 护栏链 → 工具执行 → 反馈解析 → (循环/停机)
 
+运行时装配集中在 `src/runtime.py`：CLI、REPL、Web demo 共享同一套工具注册、护栏链、LLM、Memory 和 AgentLoop 构建逻辑。
+
+LLM 边界：真实 LLM 只负责产出下一步 `Action`；Mock LLM 只在测试和 demo 中替代这一步决策。Action 解析、护栏判定、工具执行、反馈解析和 Trace 记录都由 harness 的确定性代码完成。
+
+普通问答边界：无需工具的请求可返回 `respond` 动作；代码任务完成时返回 `stop` 动作。
+
 ## 快速开始
 
 ### 安装

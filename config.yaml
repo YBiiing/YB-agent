@@ -1,24 +1,35 @@
+guardrails:
+  rules:
+    dangerous_cmd:
+      enabled: true
+    destructive_op:
+      enabled: true
+    file_write_gate:
+      enabled: true
+    network_gate:
+      enabled: true
+    path_sandbox:
+      enabled: true
 llm:
-  provider: openai
-  model: gpt-4o-mini
-  base_url: https://api.openai.com/v1
+  base_url: https://api.deepseek.com/v1
   max_tokens: 4096
-
+  model: deepseek-chat
+  provider: deepseek
 loop:
   max_steps: 20
   tool_timeout_sec: 60
-
-guardrails:
-  rules:
-    path_sandbox: {enabled: true}
-    dangerous_cmd: {enabled: true}
-    network_gate: {enabled: true}
-    file_write_gate: {enabled: true}
-    destructive_op: {enabled: true}
-
-tools:
-  allowed_commands: ["pytest", "ruff", "mypy", "git", "ls", "cat", "grep", "find"]
-
 memory:
   max_recent_steps: 5
   project_dir: .harness/memory
+tools:
+  enforce_allowed_commands: true
+  allowed_commands:
+  - pytest
+  - ruff
+  - mypy
+  - git
+  - ls
+  - cat
+  - grep
+  - find
+  - python

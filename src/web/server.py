@@ -1,24 +1,12 @@
-import json
 import tempfile
-import time
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from src.models import Action
-from src.llm.mock import ScriptedMockLLM
-from src.tools.registry import ToolRegistry
-from src.tools.files import read_file, write_file
-from src.tools.shell import shell_handler
-from src.guardrails.chain import GuardrailChain
-from src.guardrails.rules import (
-    PathSandbox, DangerousCmd, NetworkGate, FileWriteGate, DestructiveOp
-)
+from src.config import Config
 from src.guardrails.hitl import AutoApproveHITL
-from src.actions import ActionParser
-from src.feedback import FeedbackParser
-from src.memory import Memory
-from src.loop import AgentLoop
+from src.runtime import HarnessFactory
 
 app = FastAPI(title="Harness Demo")
 
@@ -29,44 +17,13 @@ async def index():
     return template_path.read_text(encoding="utf-8")
 
 
-def _build_tools() -> ToolRegistry:
-    tools = ToolRegistry()
-    tools.register("read_file", read_file, {"path": "str"})
-    tools.register("write_file", write_file, {"path": "str", "content": "str"})
-    tools.register("shell", shell_handler, {"command": "str"})
-    tools.register("stop", lambda a, p: None, {"summary": "str?"})
-    return tools
-
-
-def _build_guardrails() -> GuardrailChain:
-    chain = GuardrailChain()
-    chain.add_rule(DangerousCmd(), enabled=True)
-    chain.add_rule(DestructiveOp(), enabled=True)
-    chain.add_rule(PathSandbox(), enabled=True)
-    chain.add_rule(FileWriteGate(), enabled=True)
-    chain.add_rule(NetworkGate(), enabled=True)
-    return chain
-
-
 async def _run_loop(project_dir: str, actions: list[Action], task: str) -> dict:
     """用 ScriptedMockLLM 运行 agent 主循环，返回 trace dict。"""
-    llm = ScriptedMockLLM(actions)
-    tools = _build_tools()
-    guardrails = _build_guardrails()
-    parser = ActionParser()
-    feedback = FeedbackParser()
-    memory = Memory(max_recent_steps=10, project_dir=str(Path(project_dir) / ".harness" / "memory"))
-
-    loop = AgentLoop(
-        llm=llm,
-        tools=tools,
-        guardrails=guardrails,
-        parser=parser,
-        feedback=feedback,
-        memory=memory,
-        project_dir=project_dir,
-        max_steps=20,
+    config = Config.defaults()
+    config["memory"]["max_recent_steps"] = 10
+    loop = HarnessFactory(config=config, project_dir=project_dir).build_loop(
         hitl=AutoApproveHITL(),
+        actions=actions,
     )
     trace = await loop.run(task)
     return trace.to_dict()

@@ -49,6 +49,13 @@ class TestFileTools:
         assert result.success is True
         assert result.output == "hello world"
 
+    def test_读相对路径文件(self, temp_project):
+        (temp_project / "test.txt").write_text("hello relative")
+        action = Action(type="read_file", params={"path": "test.txt"}, raw="")
+        result = read_file(action, str(temp_project))
+        assert result.success is True
+        assert result.output == "hello relative"
+
     def test_读不存在的文件(self, temp_project):
         action = Action(type="read_file", params={"path": str(temp_project / "nonexistent.txt")}, raw="")
         result = read_file(action, str(temp_project))
@@ -66,6 +73,12 @@ class TestFileTools:
         result = write_file(action, str(temp_project))
         assert result.success is True
         assert (temp_project / "out.txt").read_text() == "new content"
+
+    def test_写相对路径文件(self, temp_project):
+        action = Action(type="write_file", params={"path": "out.txt", "content": "relative content"}, raw="")
+        result = write_file(action, str(temp_project))
+        assert result.success is True
+        assert (temp_project / "out.txt").read_text() == "relative content"
 
     def test_写文件自动创建父目录(self, temp_project):
         action = Action(type="write_file", params={"path": str(temp_project / "subdir" / "out.txt"), "content": "nested"}, raw="")

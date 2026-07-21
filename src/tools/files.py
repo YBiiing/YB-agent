@@ -5,9 +5,15 @@ from src.models import Action, ToolResult
 def _is_inside_project(path: str, project_dir: str) -> bool:
     """检查路径是否在项目目录内。"""
     try:
-        resolved = Path(path).resolve()
         project_root = Path(project_dir).resolve()
-        return str(resolved).startswith(str(project_root))
+        candidate = Path(path)
+        if not candidate.is_absolute():
+            candidate = project_root / candidate
+        resolved = candidate.resolve()
+        resolved.relative_to(project_root)
+        return True
+    except ValueError:
+        return False
     except Exception:
         return False
 
@@ -20,6 +26,8 @@ def read_file(action: Action, project_dir: str) -> ToolResult:
             error=f"路径在项目目录外: {path}", duration_ms=0,
         )
     filepath = Path(path)
+    if not filepath.is_absolute():
+        filepath = Path(project_dir) / filepath
     if not filepath.exists():
         return ToolResult(
             action=action, success=False, output="",
@@ -48,6 +56,8 @@ def write_file(action: Action, project_dir: str) -> ToolResult:
         )
     try:
         filepath = Path(path)
+        if not filepath.is_absolute():
+            filepath = Path(project_dir) / filepath
         filepath.parent.mkdir(parents=True, exist_ok=True)
         filepath.write_text(content, encoding="utf-8")
         return ToolResult(

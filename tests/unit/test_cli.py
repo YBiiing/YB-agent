@@ -28,6 +28,31 @@ def test_cli_key_status_runs_without_revealing_secret():
     assert "sk-" not in result.stdout
 
 
+def test_cli_config_llm_deepseek_writes_config(tmp_path):
+    config_path = tmp_path / "config.yaml"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "src.cli.main",
+            "config",
+            "--path",
+            str(config_path),
+            "llm",
+            "--provider",
+            "deepseek",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "provider=deepseek" in result.stdout
+    text = config_path.read_text(encoding="utf-8")
+    assert "provider: deepseek" in text
+    assert "model: deepseek-chat" in text
+    assert "base_url: https://api.deepseek.com/v1" in text
+
+
 def test_key_command_status_uses_key_manager(capsys):
     with patch("keyring.get_password", return_value="sk-test-secret"):
         assert _handle_key_command("status") == 0

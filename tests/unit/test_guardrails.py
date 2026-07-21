@@ -1,9 +1,8 @@
 import pytest
-from pathlib import Path
 from src.models import Action, GuardrailDecision
 from src.guardrails.rules import (
     PathSandbox, DangerousCmd, NetworkGate,
-    FileWriteGate, DestructiveOp,
+    FileWriteGate, DestructiveOp, AllowedCommand,
 )
 
 
@@ -11,6 +10,12 @@ class TestPathSandbox:
     def test_放行项目内路径(self, temp_project):
         rule = PathSandbox()
         action = Action(type="read_file", params={"path": str(temp_project / "foo.py")}, raw="")
+        decision = rule.check(action, str(temp_project))
+        assert decision.allowed is True
+
+    def test_放行项目内相对路径(self, temp_project):
+        rule = PathSandbox()
+        action = Action(type="read_file", params={"path": "foo.py"}, raw="")
         decision = rule.check(action, str(temp_project))
         assert decision.allowed is True
 
@@ -25,6 +30,16 @@ class TestPathSandbox:
         rule = PathSandbox()
         action = Action(type="write_file", params={"path": "/etc/hacked"}, raw="")
         decision = rule.check(action, str(temp_project))
+        assert decision.allowed is False
+
+    def test_拦截路径前缀相似但不在项目内(self, tmp_path):
+        project = tmp_path / "project"
+        outside = tmp_path / "project-other" / "file.txt"
+        project.mkdir()
+        outside.parent.mkdir()
+        rule = PathSandbox()
+        action = Action(type="read_file", params={"path": str(outside)}, raw="")
+        decision = rule.check(action, str(project))
         assert decision.allowed is False
 
     def test_放行无路径的shell动作(self, temp_project):
@@ -120,6 +135,23 @@ class TestDestructiveOp:
         action = Action(type="shell", params={"command": "pytest"}, raw="")
         decision = rule.check(action, str(temp_project))
         assert decision.requires_approval is False
+
+
+class TestAllowedCommand:
+    def test_放行白名单命令(self, temp_project):
+        rule = AllowedCommand(["pytest"])
+        action = Action(type="shell", params={"command": "pytest tests/ -q"}, raw="")
+        decision = rule.check(action, str(temp_project))
+        assert decision.allowed is True
+        assert decision.requires_approval is False
+
+    def test_未知命令需审批(self, temp_project):
+        rule = AllowedCommand(["pytest"])
+        action = Action(type="shell", params={"command": "python script.py"}, raw="")
+        decision = rule.check(action, str(temp_project))
+        assert decision.allowed is True
+        assert decision.requires_approval is True
+        assert decision.rule_name == "AllowedCommand"
 
 
 from src.guardrails.chain import GuardrailChain

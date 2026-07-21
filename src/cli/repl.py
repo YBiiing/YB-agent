@@ -4,21 +4,10 @@ from typing import Any
 
 import yaml
 
-from src.models import Action, Trace
-from src.llm.mock import ScriptedMockLLM
-from src.tools.registry import ToolRegistry
-from src.tools.files import read_file, write_file
-from src.tools.shell import shell_handler
-from src.guardrails.chain import GuardrailChain
-from src.guardrails.rules import (
-    PathSandbox, DangerousCmd, NetworkGate, FileWriteGate, DestructiveOp,
-)
+from src.models import Trace
 from src.guardrails.hitl import HITLConsole
-from src.actions import ActionParser
-from src.feedback import FeedbackParser
-from src.memory import Memory
-from src.loop import AgentLoop
 from src.config import Config
+from src.runtime import HarnessFactory
 
 
 class REPL:
@@ -161,24 +150,7 @@ class REPL:
 
     def _handle_task(self, task: str) -> None:
         print(f"\n[Agent] Starting task: {task}")
-        tools = self._build_tools()
-        guardrails = self._build_guardrails()
-        llm = self._build_llm()
-
-        loop = AgentLoop(
-            llm=llm,
-            tools=tools,
-            guardrails=guardrails,
-            parser=ActionParser(),
-            feedback=FeedbackParser(),
-            memory=Memory(
-                max_recent_steps=self._config["memory"]["max_recent_steps"],
-                project_dir=self._config["memory"]["project_dir"],
-            ),
-            project_dir=self._project_dir,
-            max_steps=self._config["loop"]["max_steps"],
-            hitl=HITLConsole(),
-        )
+        loop = HarnessFactory(self._config, self._project_dir).build_loop(hitl=HITLConsole())
 
         import asyncio
 
@@ -193,6 +165,10 @@ class REPL:
             if step.guardrail.requires_approval:
                 status = "[APPROVAL]"
             print(f"  [{step.index}] {step.action.type} {status}")
+            if step.action.type == "respond":
+                print(f"       {step.action.params.get('message', '')}")
+            if step.action.type == "stop" and step.action.params.get("summary"):
+                print(f"       summary: {step.action.params['summary']}")
             if step.feedback:
                 print(f"       -> {step.feedback.status}: {step.feedback.summary}")
         print()
@@ -223,39 +199,8 @@ class REPL:
             print(f"Feedback summary: {step.feedback.summary}")
             if step.feedback.suggested_action:
                 print(f"Suggested action: {step.feedback.suggested_action}")
+        if step.action.type == "respond":
+            print(f"Message: {step.action.params.get('message', '')}")
+        if step.action.type == "stop" and step.action.params.get("summary"):
+            print(f"Summary: {step.action.params['summary']}")
         print()
-
-    def _build_tools(self) -> ToolRegistry:
-        tools = ToolRegistry()
-        tools.register("read_file", read_file, {"path": "str"})
-        tools.register("write_file", write_file, {"path": "str", "content": "str"})
-        tools.register("shell", shell_handler, {"command": "str"})
-        tools.register("stop", lambda a, p: None, {"summary": "str?"})
-        return tools
-
-    def _build_guardrails(self) -> GuardrailChain:
-        chain = GuardrailChain()
-        rules_config = self._config["guardrails"]["rules"]
-        chain.add_rule(PathSandbox(), enabled=rules_config["path_sandbox"]["enabled"])
-        chain.add_rule(DangerousCmd(), enabled=rules_config["dangerous_cmd"]["enabled"])
-        chain.add_rule(NetworkGate(), enabled=rules_config["network_gate"]["enabled"])
-        chain.add_rule(FileWriteGate(), enabled=rules_config["file_write_gate"]["enabled"])
-        chain.add_rule(DestructiveOp(), enabled=rules_config["destructive_op"]["enabled"])
-        return chain
-
-    def _build_llm(self):
-        provider = self._config["llm"]["provider"]
-        if provider == "openai":
-            try:
-                from src.llm.openai import OpenAIClient
-
-                return OpenAIClient(
-                    model=self._config["llm"]["model"],
-                    base_url=self._config["llm"]["base_url"],
-                    max_tokens=self._config["llm"]["max_tokens"],
-                )
-            except ImportError:
-                pass
-        return ScriptedMockLLM([
-            Action(type="stop", params={"summary": "LLM is not configured"}, raw="")
-        ])

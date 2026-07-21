@@ -1,6 +1,6 @@
 import time
-import json
 import logging
+from src.context import ContextBuilder
 from src.models import Message, Step, Trace
 from src.llm.base import LLMClient
 from src.tools.registry import ToolRegistry
@@ -24,6 +24,7 @@ class AgentLoop:
         project_dir: str,
         max_steps: int = 20,
         hitl=None,
+        context_builder: ContextBuilder | None = None,
     ):
         self._llm = llm
         self._tools = tools
@@ -34,14 +35,11 @@ class AgentLoop:
         self._project_dir = project_dir
         self._max_steps = max_steps
         self._hitl = hitl
+        self._context = context_builder or ContextBuilder(memory)
 
     async def run(self, task: str) -> Trace:
         trace = Trace(task=task, steps=[], start_time=time.time(), end_time=None)
-        messages: list[Message] = []
-
-        # 构建初始上下文
-        messages.append(Message(role="system", content=self._build_system_prompt()))
-        messages.append(Message(role="user", content=task))
+        messages = self._context.initial_messages(task, self._tools)
 
         logger.info("AgentLoop 开始: task=%s, max_steps=%d", task, self._max_steps)
 
@@ -72,10 +70,7 @@ class AgentLoop:
                 self._memory.add_step(step)
                 # 将拦截信息回灌给 LLM
                 messages.append(Message(role="assistant", content=llm_text))
-                messages.append(Message(
-                    role="system",
-                    content=f"[护栏拦截] {guardrail.reason}。请尝试其他方式。",
-                ))
+                messages.append(self._context.guardrail_blocked_message(guardrail.reason))
                 continue
 
             if guardrail.requires_approval:
@@ -99,18 +94,19 @@ class AgentLoop:
                     self._memory.add_step(step)
                     messages.append(Message(role="assistant", content=llm_text))
                     reject_reason = "用户拒绝" if self._hitl else "非交互模式下自动拒绝"
-                    messages.append(Message(
-                        role="system",
-                        content=f"[护栏需审批] {guardrail.reason}。动作未执行（{reject_reason}）。",
-                    ))
+                    messages.append(
+                        self._context.approval_rejected_message(
+                            guardrail.reason, reject_reason
+                        )
+                    )
                     continue
                 logger.info("HITL 批准: step=%d, action=%s", step_index, action.type)
                 # 审批通过，继续执行工具
 
             # 4. 执行工具
-            if action.type == "stop":
+            if action.type in ("respond", "stop"):
                 logger.info("AgentLoop 停机: step=%d, summary=%s",
-                            step_index, action.params.get("summary", ""))
+                            step_index, action.params.get("summary", "") or action.params.get("message", ""))
                 step = Step(
                     index=step_index,
                     action=action,
@@ -150,19 +146,8 @@ class AgentLoop:
             self._memory.add_step(step)
 
             # 7. 构建下一轮反馈
-            output_safe = (result.output or "")[:500]
             messages.append(Message(role="assistant", content=llm_text))
-            messages.append(Message(
-                role="system",
-                content=f"""
-[步骤结果]
-动作: {action.type}({json.dumps(action.params)})
-成功: {result.success}
-输出: {output_safe}
-错误: {result.error or '无'}
-反馈: status={fb.status}, summary={fb.summary}, suggested_action={fb.suggested_action or '无'}
-""",
-            ))
+            messages.append(self._context.step_result_message(step))
 
         trace.end_time = time.time()
         logger.info("AgentLoop 结束: steps=%d, duration=%.2fs",
@@ -190,20 +175,7 @@ class AgentLoop:
             if attempt == 0:
                 messages.append(Message(
                     role="system",
-                    content="你的上一次响应为空。请提供一个有效的 JSON 动作。",
+                    content=self._context.empty_response_retry_message().content,
                 ))
 
         return '{"type": "stop", "params": {"summary": "LLM 连续返回空响应，强制停机"}}'
-
-    def _build_system_prompt(self) -> str:
-        tool_list = "\n".join(f"- {name}" for name in sorted(self._tools.tool_names()))
-        return f"""你是一个 coding agent。你可以使用以下工具：
-
-{tool_list}
-
-请用 JSON 格式回复动作：
-{{"type": "<工具名>", "params": {{...}}}}
-
-要停止时使用：
-{{"type": "stop", "params": {{"summary": "你做了什么"}}}}
-"""

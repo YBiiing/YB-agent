@@ -35,3 +35,6 @@ class ToolRegistry:
 
     def tool_names(self) -> set[str]:
         return set(self._tools.keys())
+
+    def tool_schemas(self) -> dict[str, dict]:
+        return {name: schema for name, (_, schema) in self._tools.items()}

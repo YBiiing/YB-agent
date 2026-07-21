@@ -24,3 +24,37 @@ guardrails:
         assert config["loop"]["max_steps"] == 20
         assert config["guardrails"]["rules"]["dangerous_cmd"]["enabled"] is True
         assert "pytest" in config["tools"]["allowed_commands"]
+
+
+def test_configure_llm_deepseek_preset(tmp_path):
+    path = tmp_path / "config.yaml"
+
+    config = Config.configure_llm(str(path), provider="deepseek")
+
+    assert config["llm"]["provider"] == "deepseek"
+    assert config["llm"]["model"] == "deepseek-chat"
+    assert config["llm"]["base_url"] == "https://api.deepseek.com/v1"
+    loaded = Config.load(str(path), apply_env=False)
+    assert loaded["llm"]["provider"] == "deepseek"
+
+
+def test_env_can_override_llm_config(tmp_path, monkeypatch):
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        """
+llm:
+  provider: openai
+  model: gpt-4o-mini
+  base_url: https://api.openai.com/v1
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HARNESS_LLM_PROVIDER", "deepseek")
+    monkeypatch.setenv("HARNESS_LLM_MODEL", "deepseek-chat")
+    monkeypatch.setenv("HARNESS_LLM_BASE_URL", "https://api.deepseek.com/v1")
+
+    config = Config.load(str(path))
+
+    assert config["llm"]["provider"] == "deepseek"
+    assert config["llm"]["model"] == "deepseek-chat"
+    assert config["llm"]["base_url"] == "https://api.deepseek.com/v1"
