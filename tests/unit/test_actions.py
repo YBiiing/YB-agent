@@ -45,3 +45,8 @@ class TestActionParser:
         action = self.parser.parse(text, self.known_tools)
         assert action.type == "stop"
         assert action.params["summary"] == "all tests pass"
+
+    def test_纯文本回答转respond动作(self):
+        action = self.parser.parse("我是 Coding Agent Harness。", self.known_tools | {"respond"})
+        assert action.type == "respond"
+        assert action.params["message"] == "我是 Coding Agent Harness。"

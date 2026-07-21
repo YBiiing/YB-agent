@@ -12,6 +12,12 @@ class ActionParser:
         try:
             data = json.loads(json_str)
         except json.JSONDecodeError as e:
+            if "respond" in known_tools and self._looks_like_plain_response(text):
+                return Action(
+                    type="respond",
+                    params={"message": text.strip()},
+                    raw=text,
+                )
             return Action(
                 type="error",
                 params={"message": f"JSON parse failed: {e}"},
@@ -42,3 +48,11 @@ class ActionParser:
             return match.group(1)
         # 退回到整个文本
         return text.strip()
+
+    def _looks_like_plain_response(self, text: str) -> bool:
+        stripped = text.strip()
+        if not stripped:
+            return False
+        if "{" in stripped or "}" in stripped:
+            return False
+        return len(stripped) <= 1000

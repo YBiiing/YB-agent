@@ -57,6 +57,16 @@ class ContextBuilder:
             content=f"[护栏需审批] {reason}。动作未执行（{reject_reason}）。",
         )
 
+    def action_error_message(self, message: str) -> Message:
+        return Message(
+            role="system",
+            content=(
+                "[动作解析错误] "
+                f"{message}。请只返回一个 JSON 对象，不要输出额外文本；"
+                "普通问答使用 {\"type\":\"respond\",\"params\":{\"message\":\"...\"}}。"
+            ),
+        )
+
     def step_result_message(self, step: Step) -> Message:
         result = step.result
         feedback = step.feedback

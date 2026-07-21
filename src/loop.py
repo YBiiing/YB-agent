@@ -1,7 +1,8 @@
 import time
 import logging
+import json
 from src.context import ContextBuilder
-from src.models import Message, Step, Trace
+from src.models import GuardrailDecision, Message, Step, Trace
 from src.llm.base import LLMClient
 from src.tools.registry import ToolRegistry
 from src.guardrails.chain import GuardrailChain
@@ -51,6 +52,25 @@ class AgentLoop:
             action = self._parser.parse(llm_text, self._tools.tool_names())
 
             timestamp = time.time()
+
+            if action.type == "error":
+                step = Step(
+                    index=step_index,
+                    action=action,
+                    guardrail=self._allowed_decision(),
+                    result=None,
+                    feedback=None,
+                    timestamp=timestamp,
+                )
+                trace.steps.append(step)
+                self._memory.add_step(step)
+                messages.append(Message(role="assistant", content=llm_text))
+                messages.append(
+                    self._context.action_error_message(
+                        action.params.get("message", "unknown action parse error")
+                    )
+                )
+                continue
 
             # 3. 护栏检查
             guardrail = self._guardrails.check(action, self._project_dir)
@@ -166,7 +186,13 @@ class AgentLoop:
                                attempt + 1, 2, last_error)
                 if attempt == 0:
                     continue
-                raise RuntimeError(f"LLM 调用失败，已重试: {last_error}") from e
+                return json.dumps(
+                    {
+                        "type": "respond",
+                        "params": {"message": f"LLM 调用失败，已重试: {last_error}"},
+                    },
+                    ensure_ascii=False,
+                )
 
             if llm_text and llm_text.strip():
                 return llm_text
@@ -179,3 +205,8 @@ class AgentLoop:
                 ))
 
         return '{"type": "stop", "params": {"summary": "LLM 连续返回空响应，强制停机"}}'
+
+    def _allowed_decision(self):
+        return GuardrailDecision(
+            allowed=True, reason="", rule_name="", requires_approval=False
+        )

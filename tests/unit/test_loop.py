@@ -1,6 +1,7 @@
 import pytest
 from src.models import Action, Message
 from src.llm.mock import ScriptedMockLLM
+from src.llm.base import LLMClient
 from src.tools.registry import ToolRegistry
 from src.tools.files import read_file, write_file
 from src.tools.shell import shell_handler
@@ -170,6 +171,88 @@ class TestAgentLoop:
         assert trace.steps[2].action.type == "shell"
         # Step 3: 停机
         assert trace.steps[3].action.type == "stop"
+
+    @pytest.mark.asyncio
+    async def test_纯文本llm回答作为respond停机(self, temp_project):
+        class PlainTextLLM(LLMClient):
+            async def chat(self, messages: list[Message]) -> str:
+                return "我是 Coding Agent Harness。"
+
+        tools = ToolRegistry()
+        tools.register("respond", lambda a, p: None, {"message": "str"})
+        tools.register("stop", lambda a, p: None, {})
+
+        loop = AgentLoop(
+            llm=PlainTextLLM(),
+            tools=tools,
+            guardrails=GuardrailChain(),
+            parser=ActionParser(),
+            feedback=FeedbackParser(),
+            memory=Memory(),
+            project_dir=str(temp_project),
+            max_steps=5,
+        )
+
+        trace = await loop.run("你是谁")
+
+        assert len(trace.steps) == 1
+        assert trace.steps[0].action.type == "respond"
+        assert trace.steps[0].action.params["message"] == "我是 Coding Agent Harness。"
+
+    @pytest.mark.asyncio
+    async def test_error动作不会进入工具分发(self, temp_project):
+        mock_llm = ScriptedMockLLM([
+            Action(type="missing_tool", params={}, raw=""),
+            Action(type="stop", params={"summary": "recovered"}, raw=""),
+        ])
+
+        tools = ToolRegistry()
+        tools.register("stop", lambda a, p: None, {})
+
+        loop = AgentLoop(
+            llm=mock_llm,
+            tools=tools,
+            guardrails=GuardrailChain(),
+            parser=ActionParser(),
+            feedback=FeedbackParser(),
+            memory=Memory(),
+            project_dir=str(temp_project),
+            max_steps=5,
+        )
+
+        trace = await loop.run("use missing tool")
+
+        assert trace.steps[0].action.type == "error"
+        assert trace.steps[0].result is None
+        assert trace.steps[0].feedback is None
+        assert trace.steps[1].action.type == "stop"
+
+    @pytest.mark.asyncio
+    async def test_llm连续异常转为respond(self, temp_project):
+        class FailingLLM(LLMClient):
+            async def chat(self, messages: list[Message]) -> str:
+                raise RuntimeError("missing key")
+
+        tools = ToolRegistry()
+        tools.register("respond", lambda a, p: None, {"message": "str"})
+        tools.register("stop", lambda a, p: None, {})
+
+        loop = AgentLoop(
+            llm=FailingLLM(),
+            tools=tools,
+            guardrails=GuardrailChain(),
+            parser=ActionParser(),
+            feedback=FeedbackParser(),
+            memory=Memory(),
+            project_dir=str(temp_project),
+            max_steps=5,
+        )
+
+        trace = await loop.run("你是谁")
+
+        assert len(trace.steps) == 1
+        assert trace.steps[0].action.type == "respond"
+        assert "LLM 调用失败" in trace.steps[0].action.params["message"]
 
 
 class TestAgentLoopRetry:
