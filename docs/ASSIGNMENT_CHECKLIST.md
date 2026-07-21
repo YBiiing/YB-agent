@@ -15,7 +15,7 @@
 | CLI/REPL | `src/cli/main.py` 提供任务入口，`src/cli/repl.py` 提供 trace、step、config、key 命令 | `python -m src.cli.main --help` | 已完成 |
 | WebUI | `src/web/server.py` 提供 `/`、`/api/demo`、`/api/demo/guardrail`、`/api/demo/focus` | `python -m pytest tests/unit/test_web.py -v` | 已完成 |
 | 机制演示 | `tests/demo/` 提供端到端、护栏、反馈闭环、重点维度协同演示 | `python -m pytest tests/demo/ -v` | 已完成 |
-| CI | `.github/workflows/ci.yml` 包含 `unit-test` job，运行 unit 和 demo tests | `python -m pytest tests/unit/test_ci_config.py -v` | 已完成 |
+| CI | `.github/workflows/ci.yml` 与 `.gitlab-ci.yml` 均包含 `unit-test` job，运行 unit 和 demo tests | `python -m pytest tests/unit/test_ci_config.py -v` | 已完成 |
 | Docker 分发 | `Dockerfile` 使用 Python 3.11 构建可运行镜像 | `docker build -t harness .` 和 `docker run --rm harness --help` | 已完成 |
 
 最终提交前建议执行：

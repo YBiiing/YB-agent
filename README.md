@@ -57,6 +57,10 @@ docker build -t harness .
 docker run -it -v $(pwd):/project -e HARNESS_API_KEY=$YOUR_KEY harness
 ```
 
+## CI
+
+仓库同时提供 GitHub Actions (`.github/workflows/ci.yml`) 和 GitLab CI (`.gitlab-ci.yml`) 配置；两者都包含 `unit-test` job，并运行 `pytest tests/unit/` 与 `pytest tests/demo/`。
+
 ## API Key 配置
 
 ```bash

@@ -33,6 +33,14 @@ class FeedbackParser:
                 details=details,
                 suggested_action="fix",
             )
+        if not result.success:
+            error_text = (result.error or result.output or "pytest failed").strip()
+            return FeedbackSignal(
+                status="fail",
+                summary="pytest 执行失败",
+                details=[{"message": error_text[:500]}],
+                suggested_action="fix",
+            )
         return FeedbackSignal(
             status="pass",
             summary="全部测试通过",

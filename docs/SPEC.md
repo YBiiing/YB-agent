@@ -55,7 +55,7 @@ Agent = LLM + Harness。LLM 是"CPU"，只负责决定下一步做什么；harne
 7. 若放行，通过 ToolRegistry 分发执行，获得 ToolResult
 8. 将 ToolResult 交给 FeedbackParser 解析为 FeedbackSignal
 9. 将所有信息记录为一个 Step，追加到 Trace
-10. 判断停机条件（LLM 输出 `stop`、达到最大轮次、用户手动中断）
+10. 判断停机条件（LLM 输出 `respond`/`stop`、达到最大轮次、用户手动中断）
 11. 若不停机，将 FeedbackSignal 和 Step 摘要回灌到下一轮上下文，回到步骤 2
 
 **输出**：完整的 Trace（Step 列表）
@@ -112,6 +112,7 @@ Agent = LLM + Harness。LLM 是"CPU"，只负责决定下一步做什么；harne
 | `read_file` | `path: str` | 读取文件内容 | ToolResult(output=文件内容) |
 | `write_file` | `path: str, content: str` | 写入文件 | ToolResult(output="written") |
 | `shell` | `command: str` | 执行 shell 命令 | ToolResult(output=stdout, error=stderr) |
+| `respond` | `message: str` | 直接回答无需工具的问题 | 主循环结束并在 REPL 打印回答 |
 | `stop` | `summary: str?` | 停机 | 主循环结束 |
 
 **边界条件**：
@@ -134,6 +135,7 @@ Agent = LLM + Harness。LLM 是"CPU"，只负责决定下一步做什么；harne
 | `NetworkGate` | 命令包含 `curl`、`wget`、`nc` | 命中 → `requires_approval=True` |
 | `FileWriteGate` | `write_file` 且目标文件已存在 | 命中 → `requires_approval=True` |
 | `DestructiveOp` | `shell` 命令包含 `rm`、`mv`、`del` | 命中 → `requires_approval=True` |
+| `AllowedCommand` | `shell` 命令不在 `tools.allowed_commands` 白名单内 | 命中 → `requires_approval=True` |
 
 **规则优先级**：`allowed=False` 的直接拦截规则优先于审批规则。例如 `rm -rf /` 同时命中 `DangerousCmd` 与 `DestructiveOp` 时，最终判定必须是 `allowed=False`，不进入审批；`rm -r ./cache/` 未命中直接拦截模式时，才由 `DestructiveOp` 判定为 `requires_approval=True`。
 
@@ -392,9 +394,9 @@ LLM Client ─── 收到反馈，输出 Action(type="write_file", ...) 修复
 | `Message` | role: str, content: str | LLM 对话中的一条消息 |
 
 **约束**：
-- Step 中 `result` 为 None 当且仅当 `guardrail.allowed=False`
+- Step 中 `result` 为 None 表示动作未进入工具执行：例如护栏拦截、审批拒绝、`respond`、`stop` 或动作解析错误。
 - Trace 中 Step 的 index 严格递增
-- Action.type 必须是 ToolRegistry 中已注册的工具名
+- 可执行 Action.type 必须是 ToolRegistry 中已注册的工具名；解析失败会记录为 `error` 动作并回灌协议错误，不进入工具分发。
 
 ---
 
@@ -439,7 +441,7 @@ LLM Client ─── 收到反馈，输出 Action(type="write_file", ...) 修复
 
 ### 9.1 动作 / 工具
 
-Coding 领域 agent 需要的基础工具：读文件、写文件、执行 shell 命令（测试、lint、git 等白名单命令）。工具通过 `ToolRegistry` 注册和分发，执行结果统一为 `ToolResult`。
+Coding 领域 agent 需要的基础工具：读文件、写文件、执行 shell 命令（测试、lint、git 等白名单命令），以及无需工具时直接回答的 `respond` 动作。工具通过 `ToolRegistry` 注册和分发，执行结果统一为 `ToolResult`。
 
 ### 9.2 客观反馈信号
 
@@ -502,7 +504,7 @@ Coding 领域的危险动作包括：
 | 分发 | `docker build -t harness .` 成功，且 `docker run --rm harness --help` 输出 CLI 帮助 |
 | 机制演示 | `python -m pytest tests/demo/ -v` 下三个演示场景可重复运行并产出确定性结果 |
 | WebUI | `python -c "from src.web.server import app; print('OK')"` 输出 `OK`，`/api/demo` 返回 Trace JSON |
-| CI | `.github/workflows/ci.yml` 中存在 `unit-test` job，且 job 执行 `pytest tests/unit/` 与 `pytest tests/demo/` |
+| CI | `.github/workflows/ci.yml` 与 `.gitlab-ci.yml` 中存在 `unit-test` job，且 job 执行 `pytest tests/unit/` 与 `pytest tests/demo/` |
 
 ---
 
@@ -586,6 +588,7 @@ Coding 领域的危险动作包括：
 ├── Makefile
 ├── Dockerfile
 ├── .github/workflows/ci.yml
+├── .gitlab-ci.yml
 ├── .gitignore
 ├── .env.example
 └── README.md

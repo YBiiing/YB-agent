@@ -42,6 +42,19 @@ tests/test_calc.py::test_sub FAILED
         assert signal.status == "pass"
         assert signal.suggested_action is None
 
+    def test_pytest非零退出但无failed行仍判失败(self):
+        action = Action(type="shell", params={"command": "pytest"}, raw="")
+        result = ToolResult(
+            action=action,
+            success=False,
+            output="============================= test session starts =============================\ncollected 0 items\n",
+            error="",
+            duration_ms=300,
+        )
+        signal = self.parser.parse(result)
+        assert signal.status == "fail"
+        assert signal.suggested_action == "fix"
+
     def test_解析lint输出(self):
         action = Action(type="shell", params={"command": "ruff check ."}, raw="")
         result = ToolResult(
