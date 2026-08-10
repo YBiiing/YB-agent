@@ -27,7 +27,20 @@ jobs:
           pip install -e .[dev]
 
       - name: Run unit tests
-        run: pytest tests/unit/ -v --tb=short
+        shell: bash
+        run: |
+          set +e
+          pytest tests/unit/ -v --tb=short 2>&1 | tee unit-test.log
+          test_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$test_status" -ne 0 ]; then
+            failure_output=$(tail -n 80 unit-test.log)
+            failure_output=${failure_output//'%'/'%25'}
+            failure_output=${failure_output//$'\r'/'%0D'}
+            failure_output=${failure_output//$'\n'/'%0A'}
+            echo "::error title=Unit test failure::$failure_output"
+            exit "$test_status"
+          fi
 
       - name: Run mechanism demos
         run: pytest tests/demo/ -v --tb=short
