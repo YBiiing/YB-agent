@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 from src.config import Config
@@ -27,10 +29,13 @@ async def test_runtime_factory_applies_shell_timeout_config(temp_project):
     config = Config.defaults()
     config["loop"]["tool_timeout_sec"] = 1
     loop = HarnessFactory(config=config, project_dir=str(temp_project)).build_loop(
+        hitl=AutoApproveHITL(),
         actions=[
             Action(
                 type="shell",
-                params={"command": "python -c \"import time; time.sleep(10)\""},
+                params={
+                    "command": f'"{sys.executable}" -c "import time; time.sleep(10)"'
+                },
                 raw="",
             )
         ],

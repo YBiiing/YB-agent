@@ -1,3 +1,5 @@
+import sys
+
 from src.models import Action, ToolResult
 from src.tools.files import read_file, write_file
 from src.tools.registry import ToolRegistry
@@ -106,7 +108,11 @@ class TestShellTool:
         assert result.error is not None
 
     def test_shell_超时(self, temp_project):
-        action = Action(type="shell", params={"command": "python -c \"import time; time.sleep(10)\""}, raw="")
+        action = Action(
+            type="shell",
+            params={"command": f'"{sys.executable}" -c "import time; time.sleep(10)"'},
+            raw="",
+        )
         # 测试用短超时
         result = shell_handler(action, str(temp_project), timeout_sec=1)
         assert result.success is False
