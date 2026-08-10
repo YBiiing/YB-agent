@@ -356,3 +356,19 @@
 | 未使用 worktree（部分 task） | 快速迭代，单分支更简单 | Task 间无隔离，但不影响结果 |
 | 未开 PR | 单人开发，无 review 接收者 | 无实际影响 |
 | Task 14-20 未单独开 worktree | 后期快速推进，任务粒度小且依赖密 | 已完成且通过测试 |
+
+---
+
+## 提交前 Release 交付修复
+
+- **时间：** 2026-08-10
+- **Commit：** `9191fec`
+- **Superpowers 技能：** 未使用（按项目 `AGENTS.md` 要求）
+- **开发工具：** Codex
+- **用户决策：** 使用 GitHub Release 代替公网部署；跳过 PR 流程；不扩大 API key 相关修改
+- **修复内容：** 增加 Ruff 基线、Windows 测试命令、Docker CI、tag 驱动的 `v0.1.0` Release workflow、wheel/Docker/SHA256 发布产物、Release Notes、第三方依赖声明与交付文档导航
+- **冷安装发现：** 原 wheel 把 `src/` 误判为 src-layout，安装后 `harness` 无法导入 `src`，且 WebUI 模板未打包；已通过显式 setuptools 包发现和 package-data 配置修复
+- **测试结果：** `138 passed, 1 warning`；Ruff 通过；`pip check` 通过；wheel 在干净虚拟环境中安装后 CLI 与 WebUI 模板验证通过
+- **Docker 本机验证：** Docker daemon 已启动，但配置的腾讯云 Docker Hub 镜像代理在拉取 `python:3.11-slim` 时连续返回 EOF；保留 GitHub Actions `docker-build` 作为远端最终门禁
+- **人工干预：** 明确不创建修复 PR，不修改仓库可见性，不轮换或重构 key 管理
+- **教训：** 只验证 editable install 会掩盖 wheel 包结构问题；Release 前必须在脱离工作区的干净环境中安装真实产物。

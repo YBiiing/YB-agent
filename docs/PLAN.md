@@ -3855,3 +3855,29 @@ make test
 # Windows fallback
 python -m pytest tests/unit/ -v
 ```
+
+---
+
+## 任务 21：提交前 Release 交付修复 ✅ — `9191fec`
+
+**目标：** 使用 GitHub `v0.1.0` Release 代替公网部署，交付可独立安装的 wheel、可加载的 Docker 镜像归档和 SHA256 校验文件。
+
+**涉及范围：**
+
+- `pyproject.toml`、`Makefile`、`Dockerfile`
+- `.github/workflows/ci.yml`、`.github/workflows/release.yml`
+- `README.md`、`docs/SPEC.md`、`docs/ASSIGNMENT_CHECKLIST.md`
+- `docs/RELEASE_NOTES_v0.1.0.md`、`THIRD_PARTY_NOTICES.md`
+- CI/README/打包配置回归测试
+
+**完成条件：**
+
+- [x] Windows 可不依赖 `make` 运行 unit 与 demo tests
+- [x] Ruff 规则固定且本地验证通过
+- [x] GitHub CI 在 unit/demo 成功后构建并冒烟测试 Docker
+- [x] tag workflow 校验版本并生成 Release 产物
+- [x] wheel 包含 `src` 包和 WebUI HTML 模板
+- [x] wheel 在干净虚拟环境中安装后 `harness --help` 可运行
+- [x] README、SPEC、Release Notes 与实际分发方式一致
+- [ ] GitHub Actions `docker-build` 远端通过
+- [ ] `v0.1.0` Release 创建并验证附件
