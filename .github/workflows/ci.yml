@@ -34,7 +34,7 @@ jobs:
           test_status=${PIPESTATUS[0]}
           set -e
           if [ "$test_status" -ne 0 ]; then
-            failure_output=$(tail -n 80 unit-test.log)
+            failure_output=$(tail -n 30 unit-test.log)
             failure_output=${failure_output//'%'/'%25'}
             failure_output=${failure_output//$'\r'/'%0D'}
             failure_output=${failure_output//$'\n'/'%0A'}
