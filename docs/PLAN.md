@@ -3879,5 +3879,14 @@ python -m pytest tests/unit/ -v
 - [x] wheel 包含 `src` 包和 WebUI HTML 模板
 - [x] wheel 在干净虚拟环境中安装后 `harness --help` 可运行
 - [x] README、SPEC、Release Notes 与实际分发方式一致
-- [ ] GitHub Actions `docker-build` 远端通过
+- [x] GitHub Actions `docker-build` 远端通过（run `31389444124`）
 - [ ] `v0.1.0` Release 创建并验证附件
+
+### Release candidate verification (2026-08-10)
+
+- [x] Windows unit/demo tests: 138 passed
+- [x] Linux unit tests: 134 passed
+- [x] Ruff and dependency checks passed
+- [x] GitHub Actions unit/demo jobs passed
+- [x] GitHub Actions Docker build and CLI smoke test passed
+- [ ] Push tag `v0.1.0` and verify Release assets/checksums

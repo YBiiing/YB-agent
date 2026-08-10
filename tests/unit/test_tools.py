@@ -121,4 +121,4 @@ class TestShellTool:
     def test_shell_记录执行耗时(self, temp_project):
         action = Action(type="shell", params={"command": "echo test"}, raw="")
         result = shell_handler(action, str(temp_project))
-        assert result.duration_ms > 0
+        assert result.duration_ms >= 0

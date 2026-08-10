@@ -372,3 +372,11 @@
 - **Docker 本机验证：** Docker daemon 已启动，但配置的腾讯云 Docker Hub 镜像代理在拉取 `python:3.11-slim` 时连续返回 EOF；保留 GitHub Actions `docker-build` 作为远端最终门禁
 - **人工干预：** 明确不创建修复 PR，不修改仓库可见性，不轮换或重构 key 管理
 - **教训：** 只验证 editable install 会掩盖 wheel 包结构问题；Release 前必须在脱离工作区的干净环境中安装真实产物。
+
+### Release candidate remote verification
+
+- **Date:** 2026-08-10
+- **Linux compatibility fix:** timeout tests invoke `sys.executable` instead of assuming a `python` executable exists.
+- **CI diagnostics:** failed pytest output is summarized as a GitHub annotation without exposing secrets.
+- **Stable timing assertion:** a sub-millisecond command duration may validly round down to `0` milliseconds.
+- **Remote evidence:** GitHub Actions run `31389444124` passed `unit-test (3.11)` and `docker-build`, including the container CLI smoke test.
