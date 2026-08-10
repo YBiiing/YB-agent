@@ -1,16 +1,16 @@
 .PHONY: test lint demo run install
 
 install:
-	pip install -e .[dev]
+	python -m pip install -e .[dev]
 
 test:
-	pytest tests/unit/ -v
+	python -m pytest tests/unit/ tests/demo/ -v
 
 lint:
-	ruff check src/ tests/
+	python -m ruff check src/ tests/
 
 demo:
-	pytest tests/demo/ -v
+	python -m pytest tests/demo/ -v
 
 run:
 	python -m src.cli.main

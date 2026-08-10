@@ -1,5 +1,3 @@
-import pytest
-from src.models import Action
 from src.actions import ActionParser
 
 

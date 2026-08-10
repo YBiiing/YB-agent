@@ -46,7 +46,10 @@ class HarnessFactory:
     def build_guardrails(self) -> GuardrailChain:
         chain = GuardrailChain()
         rules_config = self._config["guardrails"]["rules"]
-        enabled = lambda name: rules_config.get(name, {}).get("enabled", True)
+
+        def enabled(name: str) -> bool:
+            return rules_config.get(name, {}).get("enabled", True)
+
         chain.add_rule(DangerousCmd(), enabled=enabled("dangerous_cmd"))
         chain.add_rule(DestructiveOp(), enabled=enabled("destructive_op"))
         chain.add_rule(NetworkGate(), enabled=enabled("network_gate"))

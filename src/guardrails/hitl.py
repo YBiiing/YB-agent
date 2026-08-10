@@ -12,12 +12,12 @@ class HITLConsole:
             if choice == "y":
                 return True
             elif choice == "detail":
-                print(f"\n[Guard] 规则详情:")
+                print("\n[Guard] 规则详情:")
                 print(f"        规则名: {decision.rule_name}")
                 print(f"        原因: {decision.reason}")
                 print(f"        动作类型: {action.type}")
                 print(f"        参数: {action.params}")
-                print(f"        风险: 此操作可能导致数据丢失或安全风险\n")
+                print("        风险: 此操作可能导致数据丢失或安全风险\n")
                 continue
             else:  # "n"、""、或其他
                 return False

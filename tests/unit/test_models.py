@@ -1,3 +1,5 @@
+import json
+
 from src.models import (
     Action, ToolResult, GuardrailDecision,
     FeedbackSignal, Step, Trace, Message
@@ -86,9 +88,6 @@ def test_message_创建():
     msg = Message(role="system", content="你是一个 coding agent")
     assert msg.role == "system"
     assert msg.content == "你是一个 coding agent"
-
-
-import json
 
 
 class TestTraceSerialization:

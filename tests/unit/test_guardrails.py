@@ -1,9 +1,16 @@
-import pytest
-from src.models import Action, GuardrailDecision
+from unittest.mock import patch
+
+from src.guardrails.chain import GuardrailChain
+from src.guardrails.hitl import HITLConsole
 from src.guardrails.rules import (
-    PathSandbox, DangerousCmd, NetworkGate,
-    FileWriteGate, DestructiveOp, AllowedCommand,
+    AllowedCommand,
+    DangerousCmd,
+    DestructiveOp,
+    FileWriteGate,
+    NetworkGate,
+    PathSandbox,
 )
+from src.models import Action, GuardrailDecision
 
 
 class TestPathSandbox:
@@ -154,9 +161,6 @@ class TestAllowedCommand:
         assert decision.rule_name == "AllowedCommand"
 
 
-from src.guardrails.chain import GuardrailChain
-
-
 class TestGuardrailChain:
     def test_首个规则拦截即停止后续(self, temp_project):
         chain = GuardrailChain()
@@ -210,10 +214,6 @@ class TestGuardrailChain:
         action = Action(type="shell", params={"command": "rm -rf /"}, raw="")
         decision = chain.check(action, str(temp_project))
         assert decision.allowed is True
-
-
-from unittest.mock import patch
-from src.guardrails.hitl import HITLConsole
 
 
 class TestHITLConsole:

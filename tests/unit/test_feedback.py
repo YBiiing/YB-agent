@@ -1,5 +1,4 @@
-import pytest
-from src.models import Action, ToolResult, FeedbackSignal
+from src.models import Action, ToolResult
 from src.feedback import FeedbackParser
 
 

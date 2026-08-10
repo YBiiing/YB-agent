@@ -264,7 +264,7 @@ memory:
 | 威胁 | 对策 |
 |------|------|
 | API key 硬编码在源码中 | 代码审查 + `.gitignore` 检查，key 只通过 keyring 或 `.env` 加载 |
-| API key 泄露到 Git 历史 | `.env` 在 `.gitignore` 中，pre-commit hook 扫描疑似 key 的模式 |
+| API key 泄露到 Git 历史 | `.env` 在 `.gitignore` 中，只提交占位值示例文件，发布前检查追踪文件 |
 | API key 泄露到日志 | 日志系统过滤 key 模式，Trace 中不记录 LLM 请求的 Authorization header |
 | 危险命令被执行 | GuardrailChain 拦截，HITL 审批 |
 | 路径遍历攻击 | PathSandbox 规则拦截所有含 `../` 的路径 |
@@ -414,11 +414,13 @@ LLM Client ─── 收到反馈，输出 Action(type="write_file", ...) 修复
 
 ### 7.2 分发
 
-- **形态**：Docker 镜像
-- **构建**：`docker build -t harness .`
-- **运行**：`docker run -it -v $(pwd):/project -e HARNESS_API_KEY=$KEY harness`
-- **平台**：linux/amd64，linux/arm64
-- **已知限制**：容器内 keyring 不可用，需通过环境变量或 `.env` 传递 key；Windows 宿主机需 Docker Desktop
+- **发布入口**：GitHub Release `v0.1.0`
+- **产物**：Python wheel、压缩的 Docker 镜像归档和 `SHA256SUMS.txt`
+- **Docker 构建**：`docker build -t harness .`
+- **Docker 运行**：`docker run --rm harness --help`
+- **Release 镜像加载**：`docker load -i yb-agent-v0.1.0-docker-image.tar.gz`
+- **密钥传递**：只通过 keyring 或运行时环境变量，不烘焙到产物
+- **已知限制**：容器内 keyring 不可用；Windows 宿主机需 Docker Desktop
 
 ---
 
@@ -501,10 +503,10 @@ Coding 领域的危险动作包括：
 | 反馈闭环 | 注入一次测试失败，agent 的下一步动作确实变为修复（而非其他） |
 | Mock LLM 测试 | 全量单测通过，不依赖网络和真实 LLM |
 | 凭据安全 | key 存入 keyring，`key status` 不回显，`.env` 在 `.gitignore` 中 |
-| 分发 | `docker build -t harness .` 成功，且 `docker run --rm harness --help` 输出 CLI 帮助 |
+| 分发 | Docker 构建与冒烟测试成功；`v0.1.0` Release 包含 wheel、Docker 镜像归档与 SHA256 校验文件 |
 | 机制演示 | `python -m pytest tests/demo/ -v` 下三个演示场景可重复运行并产出确定性结果 |
 | WebUI | `python -c "from src.web.server import app; print('OK')"` 输出 `OK`，`/api/demo` 返回 Trace JSON |
-| CI | `.github/workflows/ci.yml` 与 `.gitlab-ci.yml` 中存在 `unit-test` job，且 job 执行 `pytest tests/unit/` 与 `pytest tests/demo/` |
+| CI | GitHub/GitLab 的 `unit-test` job 执行 unit 和 demo tests；GitHub CI 构建并冒烟测试 Docker，tag workflow 创建 Release |
 
 ---
 

@@ -12,7 +12,6 @@ ScriptedMockLLM 驱动 agent 完成完整的 fix loop：
 每个步骤都有断言验证 action、guardrail、result、feedback 四层数据。
 """
 import pytest
-from pathlib import Path
 from src.models import Action
 from src.llm.mock import ScriptedMockLLM
 from src.tools.registry import ToolRegistry
@@ -117,7 +116,7 @@ class TestDemoEndToEnd:
         assert s0.result is not None and s0.result.success is True
         assert "return a + b" in s0.result.output  # 源码内容
         assert s0.feedback is not None and s0.feedback.status == "pass"
-        print(f"  [Step 0] read_file → 发现 bug: subtract 返回 a+b")
+        print("  [Step 0] read_file → 发现 bug: subtract 返回 a+b")
 
         # ── Step 1: pytest（失败）──
         s1 = trace.steps[1]
@@ -135,7 +134,7 @@ class TestDemoEndToEnd:
         assert s2.guardrail.allowed is True
         # FileWriteGate：目标文件已存在 → 需审批 → AutoApproveHITL 自动批准
         assert s2.result is not None and s2.result.success is True
-        print(f"  [Step 2] write_file → 修复: return a-b")
+        print("  [Step 2] write_file → 修复: return a-b")
 
         # ── Step 3: pytest（通过）──
         s3 = trace.steps[3]

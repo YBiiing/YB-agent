@@ -1,25 +1,28 @@
 # Coding Agent Harness
 
-面向小型代码仓库的终端式 Coding Agent Harness。自己实现 agent 主循环、工具分发、护栏链、反馈闭环，全部机制可在 mock LLM 下做确定性单元测试。
+面向小型代码仓库的终端式 Coding Agent Harness。项目自行实现 agent 主循环、工具分发、护栏链、记忆与反馈闭环，所有核心机制都可在 mock LLM 下进行确定性测试。
 
-核心原则：**机制是代码，不是提示词**。拦截 `rm -rf /` 的是 Python 正则，不是系统提示里的一句话。反馈解析器是确定性函数，不是 LLM 的自我评估。
+核心原则：**机制是代码，不是提示词**。拦截 `rm -rf /` 的是 Python 规则，反馈分类来自确定性解析器，而不是 LLM 的自我评估。
 
 ## 架构
 
-Pipeline: 上下文 → LLM → Action 解析 → 护栏链 → 工具执行 → 反馈解析 → (循环/停机)
+```text
+上下文 → LLM → Action 解析 → 护栏链 → 工具执行 → 反馈解析 → 循环/停机
+```
 
-运行时装配集中在 `src/runtime.py`：CLI、REPL、Web demo 共享同一套工具注册、护栏链、LLM、Memory 和 AgentLoop 构建逻辑。
-
-LLM 边界：真实 LLM 只负责产出下一步 `Action`；Mock LLM 只在测试和 demo 中替代这一步决策。Action 解析、护栏判定、工具执行、反馈解析和 Trace 记录都由 harness 的确定性代码完成。
-
-普通问答边界：无需工具的请求可返回 `respond` 动作；代码任务完成时返回 `stop` 动作。
+运行时装配集中在 `src/runtime.py`：CLI、REPL 和 Web demo 共享同一套工具注册、护栏链、LLM、Memory 和 AgentLoop 构建逻辑。真实 LLM 只负责产生下一步 `Action`；解析、治理、执行、反馈和 Trace 记录都由 harness 代码完成。
 
 ## 快速开始
+
+### 环境
+
+- Python 3.11+
+- 需要构建容器时安装 Docker Desktop 或 Docker Engine
 
 ### 安装
 
 ```bash
-pip install -e .[dev]
+python -m pip install -e .[dev]
 ```
 
 ### 启动 REPL
@@ -30,84 +33,145 @@ harness
 python -m src.cli.main
 ```
 
-### 单次任务
+### 执行单次任务
 
 ```bash
 harness --task "修复 tests/ 中失败的测试"
 ```
 
-### 运行测试
+## 测试与机制演示
+
+Linux/macOS 或已安装 `make` 的环境：
 
 ```bash
-make test          # 单元测试（不需要真实 LLM）
-make demo          # 机制演示
+make test
+make lint
+make demo
 ```
 
-### 启动 WebUI
+Windows PowerShell 和通用 Python 命令：
+
+```powershell
+python -m pytest tests/unit tests/demo -q
+python -m ruff check src tests
+```
+
+测试与 demo 默认使用 mock LLM，不依赖网络或真实 LLM。
+
+## 本地 WebUI
 
 ```bash
 python -m src.web.server
 # 浏览器打开 http://localhost:8080
 ```
 
+WebUI 是只读的 Trace/机制演示界面，不是公网部署服务；完整交互入口是 CLI/REPL。
+
 ## Docker
+
+### 从源码构建
 
 ```bash
 docker build -t harness .
-docker run -it -v $(pwd):/project -e HARNESS_API_KEY=$YOUR_KEY harness
+docker run --rm harness --help
 ```
+
+挂载待处理项目并传入已在宿主机上设置的 key：
+
+```bash
+docker run --rm -it -v "${PWD}:/project" -e HARNESS_API_KEY harness --project /project
+```
+
+### 从 GitHub Release 加载镜像
+
+`v0.1.0` Release 提供压缩的 Docker 镜像归档。下载后执行：
+
+```bash
+docker load -i yb-agent-v0.1.0-docker-image.tar.gz
+docker run --rm yb-agent:v0.1.0 --help
+```
+
+## Release 分发
+
+本项目不提供公网部署，通过 [GitHub Release v0.1.0](https://github.com/YBiiing/YB-agent/releases/tag/v0.1.0) 发布。Release 包含：
+
+- `harness-0.1.0-py3-none-any.whl`；
+- `yb-agent-v0.1.0-docker-image.tar.gz`；
+- `SHA256SUMS.txt`。
+
+wheel 安装方式：
+
+```bash
+python -m pip install harness-0.1.0-py3-none-any.whl
+harness --help
+```
+
+Release 与仓库共享 GitHub 访问权限；私有仓库需要评审者拥有仓库访问权限。
 
 ## CI
 
-仓库同时提供 GitHub Actions (`.github/workflows/ci.yml`) 和 GitLab CI (`.gitlab-ci.yml`) 配置；两者都包含 `unit-test` job，并运行 `pytest tests/unit/` 与 `pytest tests/demo/`。
+- `.github/workflows/ci.yml`：push/PR 时运行 unit tests、机制 demo，并构建、冒烟测试 Docker 镜像。
+- `.github/workflows/release.yml`：推送 `v*` tag 时构建 wheel 和 Docker 镜像归档，生成 SHA256 校验文件并创建 Release。
+- `.gitlab-ci.yml`：保留课程要求的 `unit-test` job。
 
 ## API Key 配置
 
 ```bash
-harness key set     # 隐藏输入 → 存入 OS keyring
-harness key status  # 查看存储状态（不回显明文）
+harness key set     # 隐藏输入并存入 OS keyring
+harness key status  # 只显示存储状态
 harness key clear   # 删除已存储的 key
 ```
 
-### 威胁模型
+### 威胁模型与安全边界
 
-| 威胁 | 对策 |
-|------|------|
-| Key 硬编码在源码中 | `.gitignore` + keyring，绝不硬编码 |
-| Key 泄露到 Git 历史 | `.env` 在 `.gitignore` 中，pre-commit 检查 |
-| Key 泄露到日志 | 日志过滤 Authorization header |
-| Key 通过环境变量暴露 | `.env` 仅为 fallback，README 说明明文风险 |
+| 风险 | 处理方式 |
+| --- | --- |
+| Key 硬编码进源码 | 使用 keyring 或运行时环境变量 |
+| `.env` 误提交 | `.env` 已加入 `.gitignore`，`.env.example` 只包含占位值 |
+| Key 泄露到日志 | 不回显 key，不记录 Authorization header |
+| 容器中无 keyring | 使用运行时 `HARNESS_API_KEY`，不写入镜像 |
+
+## 作业与设计文档
+
+- [SPEC](docs/SPEC.md)
+- [PLAN](docs/PLAN.md)
+- [SPEC_PROCESS](docs/SPEC_PROCESS.md)
+- [AGENT_LOG](docs/AGENT_LOG.md)
+- [DEMO](docs/DEMO.md)
+- [REFLECTION](docs/REFLECTION.md)
+- [ASSIGNMENT_CHECKLIST](docs/ASSIGNMENT_CHECKLIST.md)
+- [第三方依赖声明](THIRD_PARTY_NOTICES.md)
 
 ## 目录结构
 
-```
+```text
 src/
 ├── models.py          # 核心数据模型
 ├── loop.py            # Agent 主循环
 ├── actions.py         # Action 解析器
-├── feedback.py        # 反馈解析器 + 传感器
+├── feedback.py        # 反馈解析器
 ├── memory.py          # 记忆系统
-├── config.py          # YAML 配置加载器
-├── llm/               # LLM 抽象 + mock + OpenAI
-├── tools/             # 工具注册表 + 文件/shell 工具
-├── guardrails/        # 护栏链 + 规则 + HITL
-├── cli/               # CLI 入口 + REPL + key 管理
-└── web/               # 最小 WebUI
+├── config.py          # YAML 配置
+├── llm/               # LLM 抽象、mock 和 OpenAI 适配器
+├── tools/             # 工具注册表、文件与 shell 工具
+├── guardrails/        # 护栏链、规则与 HITL
+├── cli/               # CLI、REPL 和 key 管理
+└── web/               # 本地演示 WebUI
 tests/
-├── unit/              # 单元测试（mock LLM，确定性）
+├── unit/              # mock LLM 确定性单测
 └── demo/              # 机制演示
 ```
 
 ## 关键设计决策
 
-- **Harness 内核自己实现**——没有使用 LangChain AgentExecutor、AutoGen、CrewAI 或任何框架的 agent loop
-- **全部核心机制可用 mock LLM 测试**——`pytest tests/unit/` 无需网络和真实 LLM
-- **护栏是确定性代码**——基于正则的规则，不是基于提示词的请求
-- **反馈来自工具输出解析**——不是 LLM 的自我评估
+- Harness 内核自行实现，不使用第三方 agent loop。
+- 核心机制可在移除真实 LLM 后进行确定性测试。
+- 护栏与反馈分类都是可单测的代码。
+- Release 同时提供 Python wheel 和 Docker 镜像归档。
 
 ## 已知限制
 
-- Docker：容器内 keyring 不可用，需通过 `HARNESS_API_KEY` 环境变量传 key（见威胁模型）
-- 平台：已在 Windows 测试；macOS/Linux 通过 keyring 支持
-- LLM：当前仅支持 OpenAI 兼容 API
-- WebUI：只读 demo 查看器；完整交互在 CLI/REPL 中
+- Docker 内不使用 keyring，需在运行时传入 `HARNESS_API_KEY`。
+- 已在 Windows 上验证；macOS/Linux 依赖各自的 keyring 后端。
+- 当前仅支持 OpenAI 兼容 API。
+- WebUI 只用于本地 mock 机制演示。

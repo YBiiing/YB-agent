@@ -1,8 +1,7 @@
-import pytest
-from pathlib import Path
 from src.models import Action, ToolResult
-from src.tools.registry import ToolRegistry
 from src.tools.files import read_file, write_file
+from src.tools.registry import ToolRegistry
+from src.tools.shell import shell_handler
 
 
 class TestToolRegistry:
@@ -91,10 +90,6 @@ class TestFileTools:
         result = write_file(action, str(temp_project))
         assert result.success is False
         assert "目录外" in result.error
-
-
-import time
-from src.tools.shell import shell_handler
 
 
 class TestShellTool:
