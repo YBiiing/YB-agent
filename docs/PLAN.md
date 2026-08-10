@@ -3880,7 +3880,7 @@ python -m pytest tests/unit/ -v
 - [x] wheel 在干净虚拟环境中安装后 `harness --help` 可运行
 - [x] README、SPEC、Release Notes 与实际分发方式一致
 - [x] GitHub Actions `docker-build` 远端通过（run `31389444124`）
-- [ ] `v0.1.0` Release 创建并验证附件
+- [x] `v0.1.0` Release 创建并验证附件（run `31392041542`）
 
 ### Release candidate verification (2026-08-10)
 
@@ -3889,4 +3889,4 @@ python -m pytest tests/unit/ -v
 - [x] Ruff and dependency checks passed
 - [x] GitHub Actions unit/demo jobs passed
 - [x] GitHub Actions Docker build and CLI smoke test passed
-- [ ] Push tag `v0.1.0` and verify Release assets/checksums
+- [x] Push tag `v0.1.0` and verify Release metadata/assets

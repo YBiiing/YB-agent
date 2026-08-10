@@ -380,3 +380,10 @@
 - **CI diagnostics:** failed pytest output is summarized as a GitHub annotation without exposing secrets.
 - **Stable timing assertion:** a sub-millisecond command duration may validly round down to `0` milliseconds.
 - **Remote evidence:** GitHub Actions run `31389444124` passed `unit-test (3.11)` and `docker-build`, including the container CLI smoke test.
+
+### v0.1.0 release verification
+
+- **Release run:** GitHub Actions run `31392041542` passed version, wheel, Docker, smoke-test, export, checksum, and release steps.
+- **Published release:** `v0.1.0`, commit `f819428`, final release (not draft/prerelease).
+- **Assets:** wheel (28,427 bytes), Docker image archive (62,765,931 bytes), and `SHA256SUMS.txt` (199 bytes).
+- **Local download note:** GitHub asset-download connections timed out on this workstation, so independent re-download hashing could not be completed; the release workflow generated checksums from the uploaded build inputs and completed successfully.
