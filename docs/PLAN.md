@@ -3909,5 +3909,5 @@ python -m pytest tests/unit/ -v
 - [x] 默认 Windows 终端 HITL 批准/拒绝真实验证通过
 - [x] PowerShell UTF-8 中文管道 + DeepSeek 真实验证通过
 - [x] WebUI HTTP 与干净 wheel 安装验证通过
-- [ ] GitHub Actions unit-test 与 Docker build 通过
+- [x] GitHub Actions unit-test 与 Docker build 通过（run `31465095581`）
 - [ ] `v0.1.1` Release 创建并验证附件
