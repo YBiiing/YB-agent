@@ -3910,4 +3910,4 @@ python -m pytest tests/unit/ -v
 - [x] PowerShell UTF-8 中文管道 + DeepSeek 真实验证通过
 - [x] WebUI HTTP 与干净 wheel 安装验证通过
 - [x] GitHub Actions unit-test 与 Docker build 通过（run `31465095581`）
-- [ ] `v0.1.1` Release 创建并验证附件
+- [x] `v0.1.1` Release 创建并验证附件（run `31465373236`）

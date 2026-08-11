@@ -400,3 +400,4 @@
 - **Docker 本机验证：** Docker Desktop 29.2.1 已启动，但腾讯云镜像代理拉取 `python:3.11-slim` 仍返回 EOF；由 GitHub Actions 承担远端 Docker 最终门禁
 - **范围约束：** 未修改 API key；未实现 `--task-file`；未做重复 Action 强制去重；不创建 PR
 - **远端验证：** GitHub Actions run `31465095581` 的 `unit-test (3.11)` 与 `docker-build` 均通过
+- **发布验证：** Release run `31465373236` 全部通过；`v0.1.1` 为正式 Release，包含 wheel（29,648 bytes）、Docker 镜像归档（62,762,532 bytes）和 `SHA256SUMS.txt`（199 bytes）
