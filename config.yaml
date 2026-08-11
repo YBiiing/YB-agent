@@ -16,6 +16,7 @@ llm:
   model: deepseek-chat
   provider: deepseek
 loop:
+  max_consecutive_action_errors: 3
   max_steps: 20
   tool_timeout_sec: 60
 memory:

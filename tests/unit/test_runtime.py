@@ -63,3 +63,21 @@ async def test_runtime_factory_applies_allowed_command_policy(temp_project):
 
     assert trace.steps[0].guardrail.requires_approval is True
     assert trace.steps[0].guardrail.rule_name == "AllowedCommand"
+
+
+@pytest.mark.asyncio
+async def test_runtime_factory_applies_action_error_limit(temp_project):
+    config = Config.defaults()
+    config["loop"]["max_consecutive_action_errors"] = 2
+    loop = HarnessFactory(config=config, project_dir=str(temp_project)).build_loop(
+        actions=[
+            Action(type="missing_tool", params={}, raw=""),
+            Action(type="missing_tool", params={}, raw=""),
+            Action(type="missing_tool", params={}, raw=""),
+        ],
+    )
+
+    trace = await loop.run("use a missing tool")
+
+    assert [step.action.type for step in trace.steps] == ["error", "error", "stop"]
+    assert "连续 2 次" in trace.steps[-1].action.params["summary"]

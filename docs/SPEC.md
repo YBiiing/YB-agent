@@ -414,11 +414,11 @@ LLM Client ─── 收到反馈，输出 Action(type="write_file", ...) 修复
 
 ### 7.2 分发
 
-- **发布入口**：GitHub Release `v0.1.0`
+- **发布入口**：GitHub Release `v0.1.1`
 - **产物**：Python wheel、压缩的 Docker 镜像归档和 `SHA256SUMS.txt`
 - **Docker 构建**：`docker build -t harness .`
 - **Docker 运行**：`docker run --rm harness --help`
-- **Release 镜像加载**：`docker load -i yb-agent-v0.1.0-docker-image.tar.gz`
+- **Release 镜像加载**：`docker load -i yb-agent-v0.1.1-docker-image.tar.gz`
 - **密钥传递**：只通过 keyring 或运行时环境变量，不烘焙到产物
 - **已知限制**：容器内 keyring 不可用；Windows 宿主机需 Docker Desktop
 
@@ -503,7 +503,7 @@ Coding 领域的危险动作包括：
 | 反馈闭环 | 注入一次测试失败，agent 的下一步动作确实变为修复（而非其他） |
 | Mock LLM 测试 | 全量单测通过，不依赖网络和真实 LLM |
 | 凭据安全 | key 存入 keyring，`key status` 不回显，`.env` 在 `.gitignore` 中 |
-| 分发 | Docker 构建与冒烟测试成功；`v0.1.0` Release 包含 wheel、Docker 镜像归档与 SHA256 校验文件 |
+| 分发 | Docker 构建与冒烟测试成功；`v0.1.1` Release 包含 wheel、Docker 镜像归档与 SHA256 校验文件 |
 | 机制演示 | `python -m pytest tests/demo/ -v` 下三个演示场景可重复运行并产出确定性结果 |
 | WebUI | `python -c "from src.web.server import app; print('OK')"` 输出 `OK`，`/api/demo` 返回 Trace JSON |
 | CI | GitHub/GitLab 的 `unit-test` job 执行 unit 和 demo tests；GitHub CI 构建并冒烟测试 Docker，tag workflow 创建 Release |

@@ -3890,3 +3890,24 @@ python -m pytest tests/unit/ -v
 - [x] GitHub Actions unit/demo jobs passed
 - [x] GitHub Actions Docker build and CLI smoke test passed
 - [x] Push tag `v0.1.0` and verify Release metadata/assets
+
+---
+
+## 任务 22：真实终端兼容性修复（v0.1.1）
+
+**目标：** 修复 Windows GBK 下 HITL 崩溃、PowerShell 中文管道乱码、连续 Action 协议错误耗尽 20 步，以及 Windows 上模型误用 Unix shell 的问题。
+
+**完成条件：**
+
+- [x] HITL 固定提示不包含 GBK 无法编码的字符
+- [x] EOF/Ctrl+C 默认拒绝审批
+- [x] 非交互 stdin 按 UTF-8 解码，交互 stdin 保持终端编码
+- [x] 连续 3 次 Action 协议错误后提前停止，合法 Action 重置计数
+- [x] REPL parser error 显示 `[ERROR]`
+- [x] 系统上下文包含当前平台并优先引导 `read_file`
+- [x] Windows 完整回归：149 passed，Ruff 与 pip check 通过
+- [x] 默认 Windows 终端 HITL 批准/拒绝真实验证通过
+- [x] PowerShell UTF-8 中文管道 + DeepSeek 真实验证通过
+- [x] WebUI HTTP 与干净 wheel 安装验证通过
+- [ ] GitHub Actions unit-test 与 Docker build 通过
+- [ ] `v0.1.1` Release 创建并验证附件

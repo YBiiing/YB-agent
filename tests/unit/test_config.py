@@ -22,6 +22,7 @@ guardrails:
     def test_默认值(self):
         config = Config.defaults()
         assert config["loop"]["max_steps"] == 20
+        assert config["loop"]["max_consecutive_action_errors"] == 3
         assert config["guardrails"]["rules"]["dangerous_cmd"]["enabled"] is True
         assert "pytest" in config["tools"]["allowed_commands"]
 

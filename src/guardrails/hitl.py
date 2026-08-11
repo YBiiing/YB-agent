@@ -3,12 +3,16 @@ from src.models import Action, GuardrailDecision
 
 class HITLConsole:
     def prompt(self, action: Action, decision: GuardrailDecision) -> bool:
-        print(f"\n[Guard] ⚠  {decision.reason}")
+        print(f"\n[Guard] [WARNING] {decision.reason}")
         print(f"       规则: {decision.rule_name}")
         print(f"       动作: {action.type}({action.params})")
 
         while True:
-            choice = input("        允许执行？[y/N/detail] ").strip().lower()
+            try:
+                choice = input("        允许执行？[y/N/detail] ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                print("\n[Guard] 未收到明确批准，操作已拒绝。")
+                return False
             if choice == "y":
                 return True
             elif choice == "detail":

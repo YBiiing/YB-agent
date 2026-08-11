@@ -1,9 +1,11 @@
 import subprocess
 import sys
+import time
 from unittest.mock import patch
 
 from src.cli.main import _handle_key_command
 from src.cli.repl import REPL
+from src.models import Action, GuardrailDecision, Step, Trace
 
 
 def test_cli_help_runs():
@@ -83,3 +85,27 @@ def test_repl_key_status_command_does_not_print_secret(tmp_path, monkeypatch, ca
     output = capsys.readouterr().out
     assert "API key:" in output
     assert "sk-test-secret" not in output
+
+
+def test_repl_trace_marks_parser_errors_as_errors(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    repl = REPL(project_dir=str(tmp_path))
+    step = Step(
+        index=0,
+        action=Action(type="error", params={"message": "invalid JSON"}, raw=""),
+        guardrail=GuardrailDecision(
+            allowed=True,
+            reason="",
+            rule_name="ActionParser",
+            requires_approval=False,
+        ),
+        result=None,
+        feedback=None,
+        timestamp=time.time(),
+    )
+
+    repl._print_trace_summary(
+        Trace(task="bad protocol", steps=[step], start_time=time.time(), end_time=time.time())
+    )
+
+    assert "[0] error [ERROR]" in capsys.readouterr().out

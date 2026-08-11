@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 
+from src.cli.console import configure_console_io
 from src.cli.repl import REPL
 from src.config import Config, LLM_PRESETS
 
@@ -189,6 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main():
+    configure_console_io()
     parser = build_parser()
     args = parser.parse_args()
 

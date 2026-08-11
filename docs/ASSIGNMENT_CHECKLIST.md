@@ -1,6 +1,6 @@
 # AI4SE A 作业验收对照
 
-本清单对照课程通用要求和 A 项目 Coding Agent Harness 要求。最终提交使用 GitHub 仓库与 `v0.1.0` Release，不提供公网部署。
+本清单对照课程通用要求和 A 项目 Coding Agent Harness 要求。最终提交使用 GitHub 仓库与 `v0.1.1` Release，不提供公网部署。
 
 | 验收项 | 实现或产物 | 验证方式 | 状态 |
 | --- | --- | --- | --- |
@@ -17,7 +17,7 @@
 | 本地 WebUI | `src/web/server.py` 提供首页和三个 mock demo API | `python -m pytest tests/unit/test_web.py -v` | 已完成 |
 | GitHub / GitLab unit-test | 两份 CI 均保留名为 `unit-test` 的 job | `python -m pytest tests/unit/test_ci_config.py -v` | 已完成 |
 | Docker CI | GitHub CI 构建镜像并执行 `--help` 冒烟测试 | 检查 `docker-build` job | 已配置 |
-| Release 分发 | tag workflow 生成 wheel、Docker 镜像归档和 SHA256 文件 | 检查 `v0.1.0` Release 附件 | tag 后自动验收 |
+| Release 分发 | tag workflow 生成 wheel、Docker 镜像归档和 SHA256 文件 | 检查 `v0.1.1` Release 附件 | tag 后自动验收 |
 | README | 包含安装、运行、测试、Docker、Release、安全边界和文档导航 | `python -m pytest tests/unit/test_readme.py -v` | 已完成 |
 | AGENT_LOG | `docs/AGENT_LOG.md` | 人工检查时间、task、commit、人工干预和教训 | 已完成 |
 | REFLECTION | `docs/REFLECTION.md` | 中文字符数和内容覆盖人工检查 | 已完成 |
@@ -42,6 +42,6 @@ git status --short
 ## Release 后验证
 
 1. GitHub Actions 的 `unit-test`、`docker-build` 和 `Release` workflow 全部通过。
-2. `https://github.com/YBiiing/YB-agent/releases/tag/v0.1.0` 可由评审者访问。
+2. `https://github.com/YBiiing/YB-agent/releases/tag/v0.1.1` 可由评审者访问。
 3. wheel、Docker 镜像归档和 `SHA256SUMS.txt` 均可下载。
 4. `submission.jsonc` 填写具体 Release 链接，与源码压缩包并列提交，不进入 Git 仓库。

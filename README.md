@@ -25,6 +25,12 @@
 python -m pip install -e .[dev]
 ```
 
+如果更新代码后全局 `harness` 仍指向旧的 editable 安装，可重建命令入口：
+
+```powershell
+python -m pip install --no-deps --force-reinstall -e .
+```
+
 ### 启动 REPL
 
 ```bash
@@ -38,6 +44,16 @@ python -m src.cli.main
 ```bash
 harness --task "修复 tests/ 中失败的测试"
 ```
+
+Windows PowerShell 直接使用 `--task` 可以可靠传入中文。需要通过管道驱动 REPL 时，PowerShell 5.1 应先将原生程序输出编码设为 UTF-8，否则中文可能在进入 Python 前变成 `?`：
+
+```powershell
+$OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+@("读取 README.md 的第一行", "!trace", "!exit") |
+  python -m src.cli.main --skip-wizard
+```
+
+模型连续 3 次未返回有效 JSON Action 时，Agent 会提前停止并给出协议错误说明，不再无效运行到 `max_steps`。
 
 ## 测试与机制演示
 
@@ -84,25 +100,25 @@ docker run --rm -it -v "${PWD}:/project" -e HARNESS_API_KEY harness --project /p
 
 ### 从 GitHub Release 加载镜像
 
-`v0.1.0` Release 提供压缩的 Docker 镜像归档。下载后执行：
+`v0.1.1` Release 提供压缩的 Docker 镜像归档。下载后执行：
 
 ```bash
-docker load -i yb-agent-v0.1.0-docker-image.tar.gz
-docker run --rm yb-agent:v0.1.0 --help
+docker load -i yb-agent-v0.1.1-docker-image.tar.gz
+docker run --rm yb-agent:v0.1.1 --help
 ```
 
 ## Release 分发
 
-本项目不提供公网部署，通过 [GitHub Release v0.1.0](https://github.com/YBiiing/YB-agent/releases/tag/v0.1.0) 发布。Release 包含：
+本项目不提供公网部署，通过 [GitHub Release v0.1.1](https://github.com/YBiiing/YB-agent/releases/tag/v0.1.1) 发布。Release 包含：
 
-- `harness-0.1.0-py3-none-any.whl`；
-- `yb-agent-v0.1.0-docker-image.tar.gz`；
+- `harness-0.1.1-py3-none-any.whl`；
+- `yb-agent-v0.1.1-docker-image.tar.gz`；
 - `SHA256SUMS.txt`。
 
 wheel 安装方式：
 
 ```bash
-python -m pip install harness-0.1.0-py3-none-any.whl
+python -m pip install harness-0.1.1-py3-none-any.whl
 harness --help
 ```
 

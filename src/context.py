@@ -1,4 +1,5 @@
 import json
+import platform
 
 from src.memory import Memory
 from src.models import Message, Step
@@ -24,9 +25,14 @@ class ContextBuilder:
             tool_lines.append(f"- {name}({params})" if params else f"- {name}")
         tool_list = "\n".join(tool_lines)
         recent = self._format_recent_steps()
+        runtime_platform = platform.system() or "unknown"
         return f"""你是一个 coding agent。你可以使用以下工具：
 
 {tool_list}
+
+当前运行平台: {runtime_platform}。
+读取项目文件时优先使用 read_file，不要用 cat、grep 或 shell 重复读取。
+确需执行 shell 时，命令语法必须兼容当前运行平台；Windows 不要使用 Unix 重定向或命令。
 
 请用 JSON 格式回复动作：
 {{"type": "<工具名>", "params": {{...}}}}
@@ -80,6 +86,7 @@ class ContextBuilder:
 输出: {output_safe}
 错误: {(result.error if result else None) or '无'}
 反馈: status={feedback.status if feedback else 'none'}, summary={feedback.summary if feedback else '无'}, suggested_action={feedback.suggested_action if feedback and feedback.suggested_action else '无'}
+如果状态没有变化，不要重复执行参数完全相同的只读动作；直接使用上述结果继续任务。
 """,
         )
 

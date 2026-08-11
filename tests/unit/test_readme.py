@@ -12,7 +12,9 @@ def test_readme_包含关键章节和命令():
     assert "威胁模型" in text
     assert "机制是代码，不是提示词" in text
     assert "python -m pytest tests/unit tests/demo -q" in text
-    assert "releases/tag/v0.1.0" in text
+    assert "releases/tag/v0.1.1" in text
+    assert "$OutputEncoding" in text
+    assert "max_steps" in text
     assert "docker load" in text
     assert "docs/SPEC.md" in text
     assert "THIRD_PARTY_NOTICES.md" in text

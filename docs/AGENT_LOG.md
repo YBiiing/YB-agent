@@ -387,3 +387,15 @@
 - **Published release:** `v0.1.0`, commit `f819428`, final release (not draft/prerelease).
 - **Assets:** wheel (28,427 bytes), Docker image archive (62,765,931 bytes), and `SHA256SUMS.txt` (199 bytes).
 - **Local download note:** GitHub asset-download connections timed out on this workstation, so independent re-download hashing could not be completed; the release workflow generated checksums from the uploaded build inputs and completed successfully.
+
+## v0.1.1 真实终端兼容性修复
+
+- **时间：** 2026-08-11
+- **Superpowers 技能：** 未使用（按项目 `AGENTS.md` 要求）
+- **问题来源：** 不依赖 pytest 的真实终端、真实 DeepSeek、HITL、WebUI 和 wheel 安装测试
+- **修复内容：** Windows 控制台安全输出、HITL EOF 默认拒绝、管道 stdin UTF-8、连续协议错误熔断、REPL `[ERROR]` 状态、运行平台提示与 `read_file` 优先指引
+- **真实验证：** 默认 Windows 终端批准覆盖成功、拒绝时文件保持原样；PowerShell 中文管道完整传入并由 DeepSeek 正确读取 `pyproject.toml` 版本 `0.1.1`
+- **自动验证：** `149 passed, 2 warnings`；Ruff、`pip check`、`git diff --check` 通过
+- **分发验证：** 干净虚拟环境安装 wheel 后 `harness --help`、key 状态和 WebUI 模板通过；WebUI 主页、护栏与完整 demo API 通过
+- **Docker 本机验证：** Docker Desktop 29.2.1 已启动，但腾讯云镜像代理拉取 `python:3.11-slim` 仍返回 EOF；由 GitHub Actions 承担远端 Docker 最终门禁
+- **范围约束：** 未修改 API key；未实现 `--task-file`；未做重复 Action 强制去重；不创建 PR

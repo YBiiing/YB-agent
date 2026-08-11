@@ -53,3 +53,4 @@ def test_release_workflow_发布_wheel_和_docker_镜像():
     assert "docker save" in all_runs
     assert "sha256sum" in all_runs
     assert "gh release create" in all_runs
+    assert "RELEASE_NOTES_${GITHUB_REF_NAME}.md" in all_runs

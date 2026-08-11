@@ -13,6 +13,17 @@ from src.memory import Memory
 from src.loop import AgentLoop
 
 
+class TextSequenceLLM(LLMClient):
+    def __init__(self, responses: list[str]):
+        self._responses = responses
+        self.calls = 0
+
+    async def chat(self, messages: list[Message]) -> str:
+        response = self._responses[min(self.calls, len(self._responses) - 1)]
+        self.calls += 1
+        return response
+
+
 class TestAgentLoop:
     @pytest.mark.asyncio
     async def test_简单读文件后停机(self, temp_project):
@@ -322,3 +333,60 @@ class TestAgentLoopRetry:
         trace = await loop.run("test retry")
         assert any(s.result is not None and s.result.success
                    for s in trace.steps)
+
+    @pytest.mark.asyncio
+    async def test_连续协议错误达到上限后提前停止(self, temp_project):
+        llm = TextSequenceLLM(["{{broken json"])
+        tools = ToolRegistry()
+        tools.register("respond", lambda a, p: None, {"message": "str"})
+        tools.register("stop", lambda a, p: None, {"summary": "str?"})
+        loop = AgentLoop(
+            llm=llm,
+            tools=tools,
+            guardrails=GuardrailChain(),
+            parser=ActionParser(),
+            feedback=FeedbackParser(),
+            memory=Memory(),
+            project_dir=str(temp_project),
+            max_steps=20,
+            max_consecutive_action_errors=3,
+        )
+
+        trace = await loop.run("return valid actions")
+
+        assert llm.calls == 3
+        assert [step.action.type for step in trace.steps] == [
+            "error", "error", "error", "stop"
+        ]
+        assert "连续 3 次" in trace.steps[-1].action.params["summary"]
+
+    @pytest.mark.asyncio
+    async def test_合法动作会重置连续协议错误计数(self, temp_project):
+        llm = TextSequenceLLM([
+            "{{broken json",
+            '{"type":"shell","params":{"command":"echo recovered"}}',
+            "{{broken again",
+            "{{still broken",
+            '{"type":"stop","params":{"summary":"done"}}',
+        ])
+        tools = ToolRegistry()
+        tools.register("shell", shell_handler, {"command": "str"})
+        tools.register("respond", lambda a, p: None, {"message": "str"})
+        tools.register("stop", lambda a, p: None, {"summary": "str?"})
+        loop = AgentLoop(
+            llm=llm,
+            tools=tools,
+            guardrails=GuardrailChain(),
+            parser=ActionParser(),
+            feedback=FeedbackParser(),
+            memory=Memory(),
+            project_dir=str(temp_project),
+            max_steps=20,
+            max_consecutive_action_errors=3,
+        )
+
+        trace = await loop.run("recover twice")
+
+        assert llm.calls == 5
+        assert trace.steps[-1].action.params["summary"] == "done"
+        assert any(step.result and step.result.success for step in trace.steps)

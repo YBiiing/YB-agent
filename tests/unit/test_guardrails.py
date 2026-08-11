@@ -250,6 +250,33 @@ class TestHITLConsole:
             result = hitl.prompt(action, decision)
         assert result is False
 
+    def test_eof默认拒绝(self, capsys):
+        hitl = HITLConsole()
+        action = Action(type="write_file", params={"path": "exists.txt"}, raw="")
+        decision = GuardrailDecision(
+            allowed=True, reason="覆盖已有文件: exists.txt",
+            rule_name="FileWriteGate", requires_approval=True,
+        )
+        with patch("builtins.input", side_effect=EOFError):
+            result = hitl.prompt(action, decision)
+
+        assert result is False
+        output = capsys.readouterr().out
+        assert "[WARNING]" in output
+        assert "操作已拒绝" in output
+
+    def test_keyboard_interrupt默认拒绝(self):
+        hitl = HITLConsole()
+        action = Action(type="write_file", params={"path": "exists.txt"}, raw="")
+        decision = GuardrailDecision(
+            allowed=True, reason="覆盖已有文件: exists.txt",
+            rule_name="FileWriteGate", requires_approval=True,
+        )
+        with patch("builtins.input", side_effect=KeyboardInterrupt):
+            result = hitl.prompt(action, decision)
+
+        assert result is False
+
     def test_detail显示详情后再次询问(self):
         hitl = HITLConsole()
         action = Action(type="shell", params={"command": "rm -rf ./cache"}, raw="")

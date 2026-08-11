@@ -26,7 +26,11 @@ class Config:
                 "base_url": "https://api.openai.com/v1",
                 "max_tokens": 4096,
             },
-            "loop": {"max_steps": 20, "tool_timeout_sec": 60},
+            "loop": {
+                "max_steps": 20,
+                "max_consecutive_action_errors": 3,
+                "tool_timeout_sec": 60,
+            },
             "guardrails": {
                 "rules": {
                     "path_sandbox": {"enabled": True},

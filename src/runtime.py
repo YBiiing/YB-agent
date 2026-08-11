@@ -102,6 +102,9 @@ class HarnessFactory:
             memory=memory,
             project_dir=self._project_dir,
             max_steps=self._config["loop"]["max_steps"],
+            max_consecutive_action_errors=self._config["loop"].get(
+                "max_consecutive_action_errors", 3
+            ),
             hitl=hitl,
             context_builder=ContextBuilder(memory),
         )

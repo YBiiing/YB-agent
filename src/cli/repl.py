@@ -161,8 +161,11 @@ class REPL:
     def _print_trace_summary(self, trace: Trace) -> None:
         print(f"\n[Agent] Finished with {len(trace.steps)} steps")
         for step in trace.steps:
-            status = "[OK]" if step.guardrail.allowed else "[BLOCKED]"
-            if step.guardrail.requires_approval:
+            if step.action.type == "error":
+                status = "[ERROR]"
+            else:
+                status = "[OK]" if step.guardrail.allowed else "[BLOCKED]"
+            if step.action.type != "error" and step.guardrail.requires_approval:
                 status = "[APPROVAL]"
             print(f"  [{step.index}] {step.action.type} {status}")
             if step.action.type == "respond":

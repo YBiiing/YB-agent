@@ -2,7 +2,7 @@ import time
 import logging
 import json
 from src.context import ContextBuilder
-from src.models import GuardrailDecision, Message, Step, Trace
+from src.models import Action, GuardrailDecision, Message, Step, Trace
 from src.llm.base import LLMClient
 from src.tools.registry import ToolRegistry
 from src.guardrails.chain import GuardrailChain
@@ -24,6 +24,7 @@ class AgentLoop:
         memory: Memory,
         project_dir: str,
         max_steps: int = 20,
+        max_consecutive_action_errors: int = 3,
         hitl=None,
         context_builder: ContextBuilder | None = None,
     ):
@@ -35,6 +36,7 @@ class AgentLoop:
         self._memory = memory
         self._project_dir = project_dir
         self._max_steps = max_steps
+        self._max_consecutive_action_errors = max(1, max_consecutive_action_errors)
         self._hitl = hitl
         self._context = context_builder or ContextBuilder(memory)
 
@@ -43,6 +45,7 @@ class AgentLoop:
         messages = self._context.initial_messages(task, self._tools)
 
         logger.info("AgentLoop 开始: task=%s, max_steps=%d", task, self._max_steps)
+        consecutive_action_errors = 0
 
         for step_index in range(self._max_steps):
             # 1. 调用 LLM（带重试）
@@ -54,6 +57,7 @@ class AgentLoop:
             timestamp = time.time()
 
             if action.type == "error":
+                consecutive_action_errors += 1
                 step = Step(
                     index=step_index,
                     action=action,
@@ -70,7 +74,34 @@ class AgentLoop:
                         action.params.get("message", "unknown action parse error")
                     )
                 )
+                if consecutive_action_errors >= self._max_consecutive_action_errors:
+                    summary = (
+                        f"模型连续 {consecutive_action_errors} 次未返回有效 Action，任务已停止。"
+                        "请重试或检查模型是否遵循 JSON Action 协议。"
+                    )
+                    stop_action = Action(
+                        type="stop",
+                        params={"summary": summary},
+                        raw="",
+                    )
+                    stop_step = Step(
+                        index=step_index + 1,
+                        action=stop_action,
+                        guardrail=self._allowed_decision(),
+                        result=None,
+                        feedback=None,
+                        timestamp=time.time(),
+                    )
+                    trace.steps.append(stop_step)
+                    self._memory.add_step(stop_step)
+                    logger.warning(
+                        "Action 协议错误熔断: consecutive_errors=%d",
+                        consecutive_action_errors,
+                    )
+                    break
                 continue
+
+            consecutive_action_errors = 0
 
             # 3. 护栏检查
             guardrail = self._guardrails.check(action, self._project_dir)
