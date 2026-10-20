@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import subprocess
 import sys
 import tomllib
@@ -46,3 +47,29 @@ def test_v2_console_script_is_independent_of_legacy_entry():
     scripts = project["project"]["scripts"]
     assert scripts["harness"] == "src.cli.main:main"
     assert scripts["harness-v2"] == "src.v2.cli:main"
+
+
+def test_mock_cli_executes_two_reads_and_reports_observations(tmp_path):
+    (tmp_path / "first.txt").write_text("first", encoding="utf-8")
+    (tmp_path / "second.txt").write_text("second", encoding="utf-8")
+    result = run_cli(
+        "--task", "scripted read demonstration", "--project", str(tmp_path), "--model", "mock",
+        "--read-file", "first.txt", "--read-file", "second.txt",
+    )
+    assert result.returncode == 0
+    report = json.loads(result.stdout)
+    assert report["state"] == "COMPLETED"
+    assert report["assessment"] == "UNVERIFIED"
+    assert len(report["steps"]) == 3
+    assert len(report["attempts"]) == 5
+    assert "Scripted mock" in report["final_answer"]
+    assert {file.name for file in tmp_path.iterdir()} == {"first.txt", "second.txt"}
+
+
+def test_cli_budget_and_unsupported_model_fail_explicitly(tmp_path):
+    limited = run_cli("--task", "read", "--project", str(tmp_path), "--model", "mock", "--max-steps", "1")
+    assert limited.returncode == 1
+    assert json.loads(limited.stdout)["reason"] == "STEP_LIMIT"
+    unsupported = run_cli("--task", "read", "--project", str(tmp_path), "--model", "unknown")
+    assert unsupported.returncode == 2
+    assert "unsupported model" in unsupported.stderr
