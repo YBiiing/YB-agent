@@ -130,6 +130,18 @@ class ToolResult:
             require_text(self.error, "failure or non-execution reason")
 
 
+@dataclass(frozen=True, slots=True)
+class StepSnapshot:
+    id: str
+    index: int
+    decision: Decision | None
+    observations: Mapping[str, ToolResult]
+    settled: bool
+
+    def __post_init__(self):
+        object.__setattr__(self, "observations", MappingProxyType(dict(self.observations)))
+
+
 class Step:
     """One accepted decision; results settle in the declared serial order."""
 
@@ -156,6 +168,9 @@ class Step:
     @property
     def observations(self) -> Mapping[str, ToolResult]:
         return MappingProxyType(dict(self._observations))
+
+    def snapshot(self) -> StepSnapshot:
+        return StepSnapshot(self.id, self.index, self.decision, self.observations, self.settled)
 
     def accept(self, decision: Decision) -> None:
         if self._decision is not None:
