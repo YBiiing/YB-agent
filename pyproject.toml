@@ -19,6 +19,7 @@ dev = [
 
 [project.scripts]
 harness = "src.cli.main:main"
+harness-v2 = "src.v2.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

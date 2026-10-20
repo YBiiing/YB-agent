@@ -149,7 +149,7 @@ harness key clear   # 删除已存储的 key
 
 ## V2.0 两阶段方案
 
-[V2.0 正式方案入口](docs/v2/README.md)：第一阶段完成可用的基础单 Agent；第二阶段实现崩溃恢复、规划、记忆与 RAG、完整应用及 Multi-Agent。当前仅完成方案编写，尚未实施。
+[V2.0 正式方案入口](docs/v2/README.md)：第一阶段完成可用的基础单 Agent；第二阶段实现崩溃恢复、规划、记忆与 RAG、完整应用及 Multi-Agent。第一阶段已启动，实际验证与进度见[实施记录](docs/v2/IMPLEMENTATION_LOG.md)。
 
 旧版课程文档与现有运行方式继续保留；V2.0 目标和验收以新方案为准。
 
