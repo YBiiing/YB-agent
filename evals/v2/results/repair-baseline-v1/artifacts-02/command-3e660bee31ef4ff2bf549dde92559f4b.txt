@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "E:\A-project\YB-agent\.harness\phase1-evals\20261021T074025Z-039ee240\workspace-9rp73ehr\check.py", line 4, in <module>
+    assert add(2, 3) == 5
+           ^^^^^^^^^^^^^^
+AssertionError

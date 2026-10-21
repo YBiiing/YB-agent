@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "sample": "repair-dev-01",
+  "dataset_version": 1,
+  "manifest_sha256": "9c41f4f372b1a23cc5aaf1e176a1bbf0a14e7d8f425f52cc525bcc7fa1f3ee9a",
+  "git_commit": "8614133bc367992a05aa021280398b80bb5d462a",
+  "source_hashes": {
+    "src/v2/__init__.py": "b23300cdc0c77cacf5b6bb4f949fecdbb4832c5a107c1ffbc1bbdb376aec8aaa",
+    "src/v2/__main__.py": "57b5292650b47bd5579003cad530f9dd2f0d528462d15463398df9215f4030fa",
+    "src/v2/action_evaluation.py": "3e95e5eff634d4df696b1a825614a9240c27ccb23c49d3accff9f63f191ed429",
+    "src/v2/cli.py": "330aa7189ddc2eca7a565e6f78fb56e17c761037fcc38ab3dee4de0c45ab3400",
+    "src/v2/command_tools.py": "b167b909560cd59afd25eea8de21868afc8946f6547207aa6a0622bb34ce2ae3",
+    "src/v2/controller.py": "1b56fb88f24c6f524e250974976e0e79ed7a73a8304d0365b45cf4ff0c675811",
+    "src/v2/deepseek.py": "4c348ac86b615fb36d1088ea13028d8f8ca034b768e431d788ad98957ec953f0",
+    "src/v2/engine.py": "699180a4693ebe8e126438183404fff2c9456f2b5e8524adc26cbb2a3c1d77f3",
+    "src/v2/evaluation.py": "620bb87456fe68d1f77607d9b10310cf9a086bc5bfc405e3be86c81e9444a2c9",
+    "src/v2/model.py": "d6c3e014e8b578c075dbf2724402031b62594eafe78a4eed76b8f7725aba7b9e",
+    "src/v2/model_budget.py": "7181f5197bd266452d88d338acfe29fab11a1741c358cfe45c8664c86e9cd119",
+    "src/v2/policy.py": "2d3d24619f78ca856154ad2986f71c8f42e9687d98cc8801fae73974216768d3",
+    "src/v2/process.py": "9ea1dfb969f21bac37a6386a5cc438fd7612e791140a660eaafb75283500bde2",
+    "src/v2/protocol.py": "c979b146c4617940f0651a5e91ea5bb094e6cede5f4b18e05b5d7b4fd501b3c6",
+    "src/v2/report.py": "5b6251fa45aae5111e74d4bffb904d4a67372ddb7623f84204b0e66abc0cf08f",
+    "src/v2/tools.py": "116d6ac8f55e8143c58021b42191f4592bad6e62b68c9bd8fbcc9bbf1e80d468",
+    "src/v2/workspace_tools.py": "bb139c59b6c9c6c276e49c45edf752d5b92180576d38c40898306116079ad67f"
+  },
+  "runner_sha256": "50959b4d507e8ca98c66696b06483a50a2e3a655cc545c0fdd3632bd789fae88",
+  "archive_helper_sha256": "9da1732fc890148f8537dea00ffea1c04fdf2b0d827cdc8a08980d67ed55d2b1",
+  "settings": {
+    "model": "deepseek-chat",
+    "base_url": "https://api.deepseek.com/v1",
+    "format": "native"
+  },
+  "limits": {
+    "max_steps": 6,
+    "max_model_requests": 6,
+    "max_tool_calls": 12,
+    "run_seconds": 180,
+    "model_seconds": 45,
+    "tool_seconds": 5,
+    "max_input_bytes": 16384,
+    "max_output_tokens": 1024,
+    "max_total_tokens": 131072
+  },
+  "runs": 2,
+  "batch_max_model_requests": 12,
+  "fixture_guard": "unchanged check.py; repair arithmetic AST only; inspect fixture unchanged",
+  "output_contract": "free-text",
+  "created_at": "2026-10-21T07:40:25.779957+00:00"
+}

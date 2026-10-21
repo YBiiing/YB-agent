@@ -1,6 +1,6 @@
 # V2 当前使用方式
 
-当前已实现只读循环、受控版本写入、Windows Python 检查、离线 mock 和 DeepSeek 适配。真实只读开发基线已连续两次通过独立检查（证据见 ../../evals/v2/results/read-baseline-v1/REPORT.md）；写入／检查的真实模型基线及第一阶段其余能力按 PHASE1_PLAN.md 继续实施，不能将当前结果视为 G1 完成。
+当前已实现只读循环、受控版本写入、Windows Python 检查、离线 mock 和 DeepSeek 适配。调查／修复／检查三类真实开发基线均已连续两次通过独立检查，证据见 `evals/v2/results/*-baseline-v1/REPORT.md`；最终样本尚未执行，第一阶段其余能力按 PHASE1_PLAN.md 继续实施，不能将当前结果视为 G1 完成。
 
 ## 安装与离线演示
 
