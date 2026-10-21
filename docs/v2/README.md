@@ -12,6 +12,7 @@
 3. [第二阶段计划：恢复与复杂扩展](PHASE2_PLAN.md)：完整保留崩溃恢复、规划、记忆、RAG、完整应用与 Multi-Agent。
 4. [审查与修订记录](REVIEW.md)：首轮问题、修订依据、二次独立审查结论及验证边界。
 5. [第一阶段实施记录](IMPLEMENTATION_LOG.md)：实际基线、逐任务验证、交叉审核和本地提交。
+6. [当前使用方式](USAGE.md)与[固定评测规范](../../evals/v2/SPEC.md)：已实现能力、命令、预算和已冻结门槛。
 
 本目录是 V2.0 的规划入口。`docs/SPEC.md`、`docs/PLAN.md`、`docs/SPEC_PROCESS.md` 继续作为旧版课程项目资料保留，不能直接作为 V2.0 实施指令。旧资料中的 Superpowers 要求不适用于本方案；遵循当前用户和仓库指令。
 
