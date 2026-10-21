@@ -8,6 +8,7 @@ import sys
 
 from src.cli.console import configure_console_io
 from src.v2.controller import TERMINAL, RunState
+from src.v2.control import ControlFileError, ControlInbox, supervise
 from src.v2.command_tools import CommandTools
 from src.v2.deepseek import DeepSeekModel, DeepSeekSettings
 from src.v2.engine import Engine, Limits
@@ -27,8 +28,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--format", choices=["native", "json"], default="native", help="model decision protocol")
     parser.add_argument("--read-file", action="append", help="mock demo file; repeat for multiple reads")
     parser.add_argument("--max-steps", type=int, choices=range(1, 7), default=6, help="step limit (1..6)")
-    parser.add_argument("--approvals", choices=["deny", "interactive"], default="deny",
+    parser.add_argument("--approvals", choices=["deny", "interactive", "control-file"], default="deny",
                         help="deny actions needing approval by default; explicitly enable human prompts")
+    parser.add_argument("--control-file", type=Path, help="operator JSONL inbox outside project (append only)")
+    parser.add_argument("--start-paused", action="store_true", help="await resume before first model request; requires control file")
+    parser.add_argument("--run-seconds", type=int, choices=range(1, 181), default=180,
+                        help="total time including approval/pause waits (1..180 seconds)")
     parser.add_argument("--tools", choices=["read", "workspace", "commands"], default="read",
                         help="read-only by default; workspace adds writes; commands adds scoped Python checks (Windows)")
     parser.add_argument("--command-script", action="append", help="approved project-relative Python script; repeatable")
@@ -58,8 +63,16 @@ def mock_reader(paths: list[str]) -> ScriptedModel:
     ])
 
 
-async def execute_and_close(engine: Engine, *, interactive=False):
+async def execute_and_close(engine: Engine, *, interactive=False, inbox=None, control_approvals=False):
     try:
+        if inbox is not None:
+            if interactive:
+                raise ContractError("interactive input and control file cannot be combined")
+
+            def emit(value):
+                print(json.dumps(value, ensure_ascii=False), file=sys.stderr, flush=True)
+
+            return await supervise(engine, inbox, approvals=control_approvals, emit=emit)
         while True:
             run = await engine.execute()
             if not interactive or run.state is not RunState.WAITING or run.wait_reason != "APPROVAL":
@@ -111,6 +124,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("project must be an existing directory")
     if not arguments.model or not arguments.model.strip():
         parser.error("model is not configured; select --model explicitly")
+    if arguments.control_file and arguments.approvals == "interactive":
+        parser.error("--control-file cannot be combined with interactive approvals; use --approvals control-file")
+    if (arguments.approvals == "control-file" or arguments.start_paused) and not arguments.control_file:
+        parser.error("--approvals control-file and --start-paused require --control-file")
     if arguments.tools != "commands" and (arguments.command_script or arguments.command_input or arguments.artifact_dir):
         parser.error("command options require --tools commands")
     try:
@@ -125,6 +142,10 @@ def main(argv: list[str] | None = None) -> int:
             tools = WorkspaceTools(arguments.project) if arguments.tools == "workspace" else ReadOnlyTools(arguments.project)
     except (ContractError, OSError):
         parser.error("invalid tool scope or artifact directory")
+    try:
+        inbox = ControlInbox(arguments.control_file, arguments.project) if arguments.control_file else None
+    except ControlFileError as error:
+        parser.error(str(error))
     if arguments.model == "mock":
         model = mock_reader(arguments.read_file or ["README.md"])
     else:
@@ -143,10 +164,15 @@ def main(argv: list[str] | None = None) -> int:
         tools.redact = model.redact
     engine = Engine(
         arguments.task, model, tools,
-        limits=Limits(max_steps=arguments.max_steps),
-        approval_mode="wait" if arguments.approvals == "interactive" else "deny",
+        limits=Limits(max_steps=arguments.max_steps, run_seconds=arguments.run_seconds),
+        approval_mode="wait" if arguments.approvals in ("interactive", "control-file") else "deny",
     )
-    run = asyncio.run(execute_and_close(engine, interactive=arguments.approvals == "interactive"))
+    if arguments.start_paused:
+        engine.controller.request_pause()
+    run = asyncio.run(execute_and_close(
+        engine, interactive=arguments.approvals == "interactive", inbox=inbox,
+        control_approvals=arguments.approvals == "control-file",
+    ))
     report = model.sanitize(run_report(
         run, model_ledger=engine.model_ledger, approvals=engine.permissions.approvals,
     ))

@@ -30,13 +30,40 @@ harness-v2 --project E:\path\to\synthetic-project --task "从 README.md 的入�
 
 ## 输出与限制
 
-stdout 输出 JSON 报告，含 Run/Step/Decision/调用/观测/尝试/事件及模型用量。退出码 0 表示运行正常交付，1 表示未正常交付，2 表示配置或参数错误。`COMPLETED` 不等于目标验收 `PASSED`；当前 Assessment 保持 `UNVERIFIED`。完整持久审计、正式独立验收及 CLI 运行中的暂停/继续控制由后续小目标交付。
+stdout 输出 JSON 报告，含 Run/Step/Decision/调用/观测/尝试/事件及模型用量。退出码 0 表示运行正常交付，1 表示未正常交付，2 表示配置或参数错误。`COMPLETED` 不等于目标验收 `PASSED`；当前 Assessment 保持 `UNVERIFIED`。完整持久审计与正式独立验收由后续小目标交付。
 
 审批机制已接入启动边界：默认 `--approvals deny` 对需要人类批准的动作返回拒绝反馈；`--approvals interactive` 展示具体动作，输入 `yes` 批准、`cancel` 取消，其他输入（包括 EOF）拒绝。审批绑定当前 Run、主体、动作参数/版本、可信资源事实、策略版本和期限；资源变化或过期会重新申请，硬拒绝不能被批准覆盖。
 
 默认 `--tools read`。显式 `--tools workspace --approvals interactive` 增加 `write_file(path, content, expected_sha256)`，模型必须提供读取时的内容 SHA-256，新文件使用 `MISSING`。只在已有目录内写入，内容为有界 UTF-8；敏感路径、链接、范围外路径仍拒绝。执行前与提交前重新核对版本，既有文件暂存后替换，新文件无覆盖发布。结果不明标记 `UNKNOWN` 并终止，不自动重试；线程超时不代表底层写入已经停止。
 
-写入面向受控单写者工作区，哈希检查与替换不是抵御不合作外部写者的原子条件写入，也不保证崩溃后的持久恢复。当前读取授权事实使用路径及 stat 版本，写入使用真实内容哈希。完整 CLI 运行中控制后续交付。
+写入面向受控单写者工作区，哈希检查与替换不是抵御不合作外部写者的原子条件写入，也不保证崩溃后的持久恢复。当前读取授权事实使用路径及 stat 版本，写入使用真实内容哈希。
+
+## 运行中的控制
+
+显式 `--control-file` 开启本地操作员 JSONL 通道。文件必须位于项目外，父目录已存在，不能是链接、junction、硬链接或特殊文件；不存在时创建空文件，已有文件不会被清空。它是当前进程的控制输入，不是崩溃恢复日志；本机用户应保护其写权限，不应把它放到不可信共享目录。
+
+```powershell
+harness-v2 --project E:\path\to\trusted-project --task "调查项目" --model mock --control-file E:\path\to\operator.jsonl --start-paused --run-seconds 180
+```
+
+stderr 持续输出逐行 JSON 状态和控制回执，stdout 保持最终 JSON 报告。首条状态给出本次 `run_id`；`--start-paused` 确保首个模型请求前等待 `resume`，仅可结合控制文件使用。在另一个 PowerShell 终端用得到的真实 ID 追加一整行（UTF-8、无 BOM、以换行结束）：
+
+```powershell
+$controlPath = 'E:\path\to\operator.jsonl'
+$runId = '从 control_status 复制本次 run_id'
+$record = @{run_id=$runId; command='resume'} | ConvertTo-Json -Compress
+[IO.File]::AppendAllText($controlPath, $record + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+```
+
+command 可为 `pause`、`resume`、`cancel` 或 `status`。按文件顺序处理，其他 Run 的指令忽略；终态不会被重新调度。`resume` 只在已进入 PAUSED 后接受，在途暂停请求还未落地时返回 `CONTROL_NOT_READY`，应等状态再操作。取消请求优先于后来的暂停或继续。
+
+写入／命令审批需显式 `--approvals control-file`；状态包含当前审批 ID、动作参数、资源版本和要求。追加 `{"run_id":"本次ID","command":"approve","approval_id":"当前审批ID"}`，或将 command 改为 `deny`。只接受当前等待的审批，执行前照常重查全部策略、资源与有效期；默认 deny 模式不会因为控制文件里的 approve 而开放写入。控制文件不能与阻塞式 `--approvals interactive` 同时使用。
+
+文件上限 65536 bytes、每行 2048 bytes、最多 128 条非空指令；不完整末行等待换行，格式错误行给出安全回执，不回显原文。运行期间只允许追加；重写、替换、文件丢失、超限或读取失败会取消 Run 并阻止后续派发，已有在途动作按原协议收尾。每次运行宜使用新的控制文件。项目外路径可阻止文件读写工具直接访问控制通道，但已批准的 Python 仍有本机用户的文件权限；这不构成抵御任意项目代码的隔离边界。
+
+控制轮询间隔为 50ms，实际响应受 OS 调度和短同步操作影响。模型在途取消会等待有界响应或超时，保留计费信息、丢弃迟到决策；不会声称供应商停止计费。命令取消会请求停止 Job 并等待确认，停止不明仍为 UNKNOWN。暂停等待在途动作收尾，保留有效模型响应及未执行调用；继续不会重复已观测调用或有效模型请求。`--run-seconds 1..180` 计入执行、控制文件模式下的审批和暂停等待，截止后不发新动作；进程清理另有既定有界等待。旧交互输入仍为阻塞读取，此入口的输入等待截止尚待 P1-07 后续小目标完善。
+
+当前已在 Windows 验证外部 CLI 继续／截止，以及模型等待、批次暂停、审批取消和真实命令取消；Linux 尚未验证，不宣称其平台行为已通过。
 
 ## 受控 Python 检查（Windows）
 

@@ -86,7 +86,11 @@ class Engine:
     def _authorize_tool(self, call) -> bool:
         # Invoked inside the controller admission lock: all policy/approval and
         # resource facts are refreshed immediately before a permit is committed.
-        return self._authorization(call, admitting=True).effect is Effect.ALLOW
+        allowed = self._authorization(call, admitting=True).effect is Effect.ALLOW
+        if allowed and self._time_left() <= 0:
+            self._admitted_resources.pop(call.id, None)
+            return False
+        return allowed
 
     def _apply_authorization(self, call, authorization: Authorization) -> bool:
         self.pending_approval = None
@@ -112,6 +116,13 @@ class Engine:
     def _time_left(self) -> float:
         return max(0, self.limits.run_seconds - (time.monotonic() - self._started))
 
+    def check_deadline(self) -> None:
+        """Count idle approval/pause time too, without closing active attempts."""
+        if self._started is None:
+            self._started = time.monotonic()
+        if self._time_left() <= 0 and self.controller.active_permit is None:
+            self._stop(RunState.EXHAUSTED, "RUN_TIME_LIMIT")
+
     def _stop(self, state: RunState, reason: str) -> None:
         if self.controller.state not in TERMINAL:
             self.controller.stop(state, reason)
@@ -134,8 +145,7 @@ class Engine:
 
     async def _execute(self) -> RunController:
         run = self.controller
-        if self._started is None:
-            self._started = time.monotonic()
+        self.check_deadline()
         if run.state is RunState.QUEUED:
             run.start()
         while run.state is RunState.RUNNING:
@@ -173,9 +183,11 @@ class Engine:
                     except ContractError:
                         self.model_ledger.abandon(intent.id, "ADMISSION_BLOCKED")
                         raise
-                    if run.control is not Control.NONE:
-                        self.model_ledger.abandon(intent.id, "CONTROL_BEFORE_SEND")
+                    if run.control is not Control.NONE or self._time_left() <= 0:
+                        reason = "CONTROL_BEFORE_SEND" if run.control is not Control.NONE else "RUN_TIME_LIMIT"
+                        self.model_ledger.abandon(intent.id, reason)
                         run.finish_model(permit, ResultStatus.FAILED)
+                        self.check_deadline()
                         break
                     self.model_ledger.sent(intent.id)
                     self.model_requests += 1
@@ -225,6 +237,7 @@ class Engine:
                 try:
                     run.accept(self._pending_decision)
                 except ContractError:
+                    self.check_deadline()
                     if run.state is RunState.RUNNING:
                         self._stop(RunState.FAILED, "MODEL_PROTOCOL_ERROR")
                     break
@@ -255,6 +268,7 @@ class Engine:
                 try:
                     permit = run.grant_tool(call.id)
                 except ContractError:
+                    self.check_deadline()
                     if run.state is RunState.RUNNING:
                         latest = self._authorization(call)
                         if latest.effect is Effect.ALLOW:

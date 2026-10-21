@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import subprocess
 import sys
+import threading
 import tomllib
 
 
@@ -85,3 +86,65 @@ def test_command_cli_requires_explicit_scope_and_external_artifacts(tmp_path):
                        "--artifact-dir", str(tmp_path / "outputs"))
     assert internal.returncode == 2 and "artifact" in internal.stderr
     assert list(tmp_path.iterdir()) == []
+
+
+def test_control_options_reject_ambiguous_or_workspace_channels(tmp_path):
+    base = ("--task", "read", "--project", str(tmp_path), "--model", "mock")
+    for extra in (("--start-paused",), ("--approvals", "control-file"),
+                  ("--control-file", str(tmp_path / "internal.jsonl")),
+                  ("--control-file", str(tmp_path.parent / "operator.jsonl"), "--approvals", "interactive")):
+        result = run_cli(*base, *extra)
+        assert result.returncode == 2
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_cli_external_control_resumes_same_run_and_leaves_stdout_as_report(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "README.md").write_bytes(b"hello")
+    inbox = tmp_path / "operator.jsonl"
+    process = subprocess.Popen(
+        [sys.executable, "-m", "src.v2", "--task", "read", "--project", str(project),
+         "--model", "mock", "--control-file", str(inbox), "--start-paused", "--run-seconds", "10"],
+        cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
+    )
+    initial = []
+    ready = threading.Event()
+
+    def read_initial():
+        initial.append(process.stderr.readline())
+        ready.set()
+
+    reader = threading.Thread(target=read_initial, daemon=True)
+    reader.start()
+    try:
+        assert ready.wait(5), "CLI did not expose its paused run"
+        status = json.loads(initial[0])
+        assert status["state"] == "PAUSED"
+        assert status["active"] is None and status["model_requests"] == 0
+        with inbox.open("a", encoding="utf-8", newline="\n") as stream:
+            stream.write(json.dumps({"run_id": status["run_id"], "command": "resume"}) + "\n")
+        output, error = process.communicate(timeout=10)
+        report = json.loads(output)
+        assert process.returncode == 0
+        assert report["state"] == "COMPLETED"
+        assert report["run_id"] == status["run_id"]
+        assert len(report["attempts"]) == 3
+        assert any(json.loads(line).get("result") == "ACCEPTED" for line in error.splitlines())
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate(timeout=5)
+        reader.join(timeout=1)
+
+
+def test_cli_start_paused_reaches_total_deadline_without_model_requests(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    result = run_cli("--task", "read", "--project", str(project), "--model", "mock",
+                     "--control-file", str(tmp_path / "operator.jsonl"), "--start-paused", "--run-seconds", "1")
+    assert result.returncode == 1
+    report = json.loads(result.stdout)
+    assert report["state"] == "EXHAUSTED"
+    assert report["reason"] == "RUN_TIME_LIMIT"
+    assert report["attempts"] == []
