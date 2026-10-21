@@ -27,6 +27,8 @@ class Limits:
     max_total_tokens: int = 131_072
     max_model_retries: int = 0
     retry_seconds: float = 0.25
+    approval_seconds: float = 60
+    pause_seconds: float = 60
 
     def __post_init__(self):
         for name in (
@@ -38,7 +40,7 @@ class Limits:
                 raise ContractError(f"{name} must be a positive integer")
         if type(self.max_model_retries) is not int or not 0 <= self.max_model_retries <= 2:
             raise ContractError("max_model_retries must be an integer in 0..2")
-        for name in ("run_seconds", "model_seconds", "tool_seconds", "retry_seconds"):
+        for name in ("run_seconds", "model_seconds", "tool_seconds", "retry_seconds", "approval_seconds", "pause_seconds"):
             value = getattr(self, name)
             if type(value) not in (int, float) or not 0 < value < float("inf"):
                 raise ContractError(f"{name} must be finite and positive")
@@ -128,6 +130,12 @@ class Engine:
             self._started = time.monotonic()
         if self._time_left() <= 0 and self.controller.active_permit is None:
             self._stop(RunState.EXHAUSTED, "RUN_TIME_LIMIT")
+        elif self.controller.active_permit is None:
+            idle = self.controller.idle_seconds
+            if idle["approval"] >= self.limits.approval_seconds:
+                self._stop(RunState.EXHAUSTED, "APPROVAL_WAIT_LIMIT")
+            elif idle["pause"] >= self.limits.pause_seconds:
+                self._stop(RunState.EXHAUSTED, "PAUSE_WAIT_LIMIT")
 
     def _stop(self, state: RunState, reason: str) -> None:
         if self.controller.state not in TERMINAL:

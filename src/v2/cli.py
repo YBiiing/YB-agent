@@ -13,6 +13,7 @@ from src.v2.command_tools import CommandTools
 from src.v2.deepseek import DeepSeekModel, DeepSeekSettings
 from src.v2.engine import Engine, Limits
 from src.v2.model import ModelError, ScriptedModel
+from src.v2.operator_input import OperatorInput, OperatorInputError, read_reply
 from src.v2.protocol import ContractError, Decision, ResultStatus, ToolCall
 from src.v2.report import run_report
 from src.v2.tools import ReadOnlyTools
@@ -36,6 +37,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--start-paused", action="store_true", help="await resume before first model request; requires control file")
     parser.add_argument("--run-seconds", type=int, choices=range(1, 181), default=180,
                         help="total time including approval/pause waits (1..180 seconds)")
+    parser.add_argument("--approval-seconds", type=int, choices=range(1, 181), default=60,
+                        help="cumulative approval waiting allowance (1..180 seconds)")
+    parser.add_argument("--pause-seconds", type=int, choices=range(1, 181), default=60,
+                        help="cumulative paused allowance (1..180 seconds)")
     parser.add_argument("--tools", choices=["read", "workspace", "commands"], default="read",
                         help="read-only by default; workspace adds writes; commands adds scoped Python checks (Windows)")
     parser.add_argument("--command-script", action="append", help="approved project-relative Python script; repeatable")
@@ -75,6 +80,7 @@ async def execute_and_close(engine: Engine, *, interactive=False, inbox=None, co
                 print(json.dumps(value, ensure_ascii=False), file=sys.stderr, flush=True)
 
             return await supervise(engine, inbox, approvals=control_approvals, emit=emit)
+        reader = None
         while True:
             run = await engine.execute()
             if not interactive or run.state is not RunState.WAITING or run.wait_reason != "APPROVAL":
@@ -90,9 +96,14 @@ async def execute_and_close(engine: Engine, *, interactive=False, inbox=None, co
             print("需要审批以下动作：\n" + json.dumps(preview, ensure_ascii=False, indent=2), file=sys.stderr)
             print("输入 yes 批准本次动作，cancel 取消运行，其他输入拒绝：", file=sys.stderr, flush=True)
             try:
-                reply = input().strip().casefold()
-            except EOFError:
-                reply = "no"
+                if reader is None:
+                    reader = OperatorInput()
+                reply = await read_reply(engine, reader)
+            except OperatorInputError as error:
+                run.stop(RunState.FAILED, str(error))
+                return run
+            if reply is None:
+                return run
             if reply == "cancel":
                 run.request_cancel()
                 return run
@@ -112,6 +123,9 @@ async def execute_and_close(engine: Engine, *, interactive=False, inbox=None, co
                 if run.state in TERMINAL or run.state is RunState.PAUSED:
                     return run
                 raise
+    except asyncio.CancelledError:
+        engine.controller.request_cancel()
+        raise
     finally:
         await engine.model.close()
 
@@ -167,7 +181,8 @@ def main(argv: list[str] | None = None) -> int:
     engine = Engine(
         arguments.task, model, tools,
         limits=Limits(max_steps=arguments.max_steps, run_seconds=arguments.run_seconds,
-                      max_model_retries=arguments.model_retries),
+                      max_model_retries=arguments.model_retries, approval_seconds=arguments.approval_seconds,
+                      pause_seconds=arguments.pause_seconds),
         approval_mode="wait" if arguments.approvals in ("interactive", "control-file") else "deny",
     )
     if arguments.start_paused:

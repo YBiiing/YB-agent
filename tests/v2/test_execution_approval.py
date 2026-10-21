@@ -35,6 +35,18 @@ class SyntheticTools(ReadOnlyTools):
         return super().execute(call)
 
 
+@pytest.fixture(autouse=True)
+def scripted_operator_input(monkeypatch):
+    class Input:
+        def read_now(self):
+            try:
+                return input()
+            except EOFError:
+                return "no"
+
+    monkeypatch.setattr("src.v2.cli.OperatorInput", Input)
+
+
 def setup(tmp_path, **options):
     tools = SyntheticTools(tmp_path)
     call = ToolCall("write_file", {"path": "synthetic.txt", "content": "proposed"})

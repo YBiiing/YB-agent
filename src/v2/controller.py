@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from threading import RLock
+import time
 from typing import Callable
 
 from src.v2.protocol import (
@@ -81,6 +82,8 @@ class RunController:
         self._id = new_id()
         self._lock = RLock()
         self._state = RunState.QUEUED
+        self._state_since = time.monotonic()
+        self._idle_totals = {"approval": 0.0, "pause": 0.0}
         self._control = Control.NONE
         self._reason = ""
         self._wait_reason: str | None = None
@@ -161,6 +164,32 @@ class RunController:
     def _event(self, kind: str) -> None:
         self._events.append(Event(len(self._events), kind, self._state, self._control))
 
+    def _idle_kind(self) -> str | None:
+        if self._state is RunState.PAUSED:
+            return "pause"
+        if self._state is RunState.WAITING and self._wait_reason == "APPROVAL":
+            return "approval"
+        return None
+
+    def _set_state(self, state: RunState) -> None:
+        if state is self._state:
+            return
+        now = time.monotonic()
+        kind = self._idle_kind()
+        if kind is not None:
+            self._idle_totals[kind] += max(0, now - self._state_since)
+        self._state = state
+        self._state_since = now
+
+    @property
+    def idle_seconds(self) -> dict[str, float]:
+        with self._lock:
+            totals = dict(self._idle_totals)
+            kind = self._idle_kind()
+            if kind is not None:
+                totals[kind] += max(0, time.monotonic() - self._state_since)
+            return totals
+
     def _require_running(self) -> None:
         if self._state is not RunState.RUNNING or self._control is not Control.NONE:
             raise ContractError("run does not allow new work")
@@ -171,7 +200,7 @@ class RunController:
         with self._lock:
             if self._state is not RunState.QUEUED or self._control is not Control.NONE:
                 raise ContractError("run cannot be started from its current state")
-            self._state = RunState.RUNNING
+            self._set_state(RunState.RUNNING)
             self._wait_reason = None
             self._event("started")
 
@@ -245,7 +274,7 @@ class RunController:
         self._attempts[-1] = replace(self._attempts[-1], status=status)
         self._active = None
         if self._state is RunState.WAITING:
-            self._state = RunState.RUNNING
+            self._set_state(RunState.RUNNING)
             self._wait_reason = None
         self._event(f"{permit.kind}_observed")
 
@@ -278,7 +307,7 @@ class RunController:
             if self._state is not RunState.RUNNING:
                 raise ContractError("only running tasks can wait")
             self._wait_reason = require_text(reason, "wait reason")
-            self._state = RunState.WAITING
+            self._set_state(RunState.WAITING)
             self._event("waiting")
 
     def wake(self) -> None:
@@ -287,7 +316,7 @@ class RunController:
                 raise ContractError("waiting task is not ready to be scheduled")
             if self._control is not Control.NONE:
                 raise ContractError("control request prevents scheduling")
-            self._state = RunState.QUEUED
+            self._set_state(RunState.QUEUED)
             self._event("ready")
 
     def request_pause(self) -> RunState:
@@ -317,7 +346,7 @@ class RunController:
             if self._state is not RunState.PAUSED:
                 raise ContractError("only paused tasks can resume")
             self._control = Control.NONE
-            self._state = RunState.QUEUED
+            self._set_state(RunState.QUEUED)
             self._event("resumed")
             return self._state
 
@@ -327,7 +356,7 @@ class RunController:
         if self._control is Control.CANCEL:
             self._close(RunState.CANCELLED, "USER_CANCELLED")
         elif self._control is Control.PAUSE:
-            self._state = RunState.PAUSED
+            self._set_state(RunState.PAUSED)
             self._event("paused")
 
     def _close(self, state: RunState, reason: str) -> None:
@@ -340,7 +369,7 @@ class RunController:
             for call in step.decision.calls:
                 if call.id not in step.observations:
                     step.observe(call.id, ToolResult(ResultStatus.SKIPPED, error=reason))
-        self._state = state
+        self._set_state(state)
         self._reason = reason
         self._wait_reason = None
         self._event("closed")
