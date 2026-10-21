@@ -129,3 +129,15 @@
 - 默认读工具允许，写入/代码执行需审批，未注册工具拒绝；此处仅有策略声明，未提前实现写入或命令执行。可信资源事实由后续执行器提供，不由模型参数指定。
 - 两名 subagent 发现嵌套资源 list 和 Store requirements list 的可变别名会使审批展示与摘要失配。先补两条回归得到 2 failed，再统一冻结并校验 Approval 指纹与快照一致。
 - 修复后策略 17 passed、ruff 通过；两名审核者均独立复验 17 passed，确认 P2 关闭，无新阻断。Engine/CLI 接入留 P1-05b，尚不声称整个 P1-05 完成。
+
+
+## P1-05b：执行边界与 CLI 审批
+
+- P1-05a 提交：`9b15ba9`。
+- Engine 在初始策略检查及 Controller 启动锁内刷新可信资源事实、全部策略和有效批准。ASK 保留原批次进入 WAITING；无交互模式拒绝，不向执行器发调用；批准后资源变化或到期需重新审批。
+- CLI 显式 --approvals interactive，展示动作参数/资源/要求，yes/no/cancel/EOF 路径；默认 deny，报告按 Run 隔离审批并沿用凭据脱敏。当前真实工具仍只读，effect 路径由不写文件的 SyntheticTools 验证。
+- 审核发现输入期间控制先赢后无条件 wake 会抛 ContractError。补 8 个输入/唤醒 × 暂停/取消 × yes/no 场景并修复：终态/暂停正常返回，其他真正契约错误继续抛出。
+- 两名 subagent 最终各自独立运行审批接入 21 passed，均关闭 P2，无新阻断；另覆盖即时过期、批准后的控制、批次继续不重复、硬拒绝和迟到批准。
+- P1-05 已完成；读取资源事实是路径/stat 绑定，不冒充写前内容哈希或实际写/命令证明。继续 P1-06 真实工具与对应能力基线。
+
+- P1-05 收尾 V2 全量 212 passed、2 skipped，src/tests/scripts ruff 通过；两项跳过仍为本机 symlink 创建权限，Windows junction/hardlink 用例实际通过。

@@ -58,7 +58,7 @@ async def execute_trial(sample, project, model, limits, index, output):
         errors.append("ASSESSMENT_ERROR")
     result = {
         "trial": index, "elapsed_seconds": round(time.monotonic() - started, 3),
-        "run": run_report(run, model_ledger=engine.model_ledger),
+        "run": run_report(run, model_ledger=engine.model_ledger, approvals=engine.permissions.approvals),
         "independent_assessment": assessment, "trial_errors": errors,
         "model_requests": engine.model_requests, "tool_calls": engine.tool_calls,
     }

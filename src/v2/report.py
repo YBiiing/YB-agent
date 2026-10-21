@@ -2,10 +2,12 @@
 
 from src.v2.controller import RunController
 from src.v2.model_budget import ModelLedger
+from src.v2.policy import ApprovalStore
 from dataclasses import asdict
 
 
-def run_report(run: RunController, *, model_ledger: ModelLedger | None = None) -> dict:
+def run_report(run: RunController, *, model_ledger: ModelLedger | None = None,
+               approvals: ApprovalStore | None = None) -> dict:
     return {
         "schema_version": 1,
         "run_id": run.id,
@@ -18,6 +20,14 @@ def run_report(run: RunController, *, model_ledger: ModelLedger | None = None) -
             "charged_tokens": model_ledger.charged_tokens,
             "attempts": [asdict(attempt) for attempt in model_ledger.attempts],
         },
+        "approvals": [] if approvals is None else [{
+            "id": approval.id, "state": approval.state.value, "run_id": approval.action.run_id,
+            "subject": approval.action.subject, "call_id": approval.action.call.id,
+            "tool": approval.action.call.name, "version": approval.action.call.version,
+            "arguments": approval.action.call.arguments, "resources": dict(approval.action.resources),
+            "fingerprint": approval.fingerprint, "requirements": approval.requirements,
+            "policy_revision": approval.policy_revision, "expires_at_monotonic": approval.expires_at,
+        } for approval in approvals.records if approval.action.run_id == run.id],
         "steps": [{
             "id": step.id,
             "index": step.index,

@@ -7,7 +7,10 @@ import time
 from src.v2.controller import TERMINAL, Control, RunController, RunState, Task
 from src.v2.model import Model, ModelError, ModelInput, ModelResponse
 from src.v2.model_budget import ModelBudgetError, ModelLedger
-from src.v2.protocol import ContractError, Decision, DecisionKind, ResultStatus, ToolResult
+from src.v2.policy import (
+    Action, Approval, Authorization, Effect, PermissionService, PolicySet, basic_tool_policy,
+)
+from src.v2.protocol import ContractError, Decision, DecisionKind, ResultStatus, ToolResult, require_text
 from src.v2.tools import ReadOnlyTools
 
 
@@ -38,10 +41,19 @@ class Limits:
 
 
 class Engine:
-    def __init__(self, task: str | Task, model: Model, tools: ReadOnlyTools, *, limits=Limits()):
-        self.controller = RunController(task, tool_authorizer=tools.authorize)
+    def __init__(self, task: str | Task, model: Model, tools: ReadOnlyTools, *, limits=Limits(),
+                 permissions: PermissionService | None = None, subject="local-user", approval_mode="wait"):
+        if approval_mode not in ("wait", "deny"):
+            raise ContractError("unknown approval mode")
         self.model = model
         self.tools = tools
+        self.subject = require_text(subject, "run subject")
+        self.permissions = permissions if permissions is not None else PermissionService(
+            PolicySet("basic-tools-v1", (basic_tool_policy,)),
+        )
+        self.approval_mode = approval_mode
+        self.pending_approval: Approval | None = None
+        self.controller = RunController(task, tool_authorizer=self._authorize_tool)
         self.limits = limits
         self.model_requests = 0
         self.tool_calls = 0
@@ -52,6 +64,44 @@ class Engine:
         self._started: float | None = None
         self._executing = False
         self._pending_decision: Decision | None = None
+
+    def _authorization(self, call) -> Authorization:
+        run = self.controller
+        try:
+            if not self.tools.authorize(call):
+                return Authorization(Effect.DENY, ("TOOL_POLICY_DENIED",))
+            resources = self.tools.authorization_facts(call)
+            if run.state is not RunState.RUNNING or run.control is not Control.NONE:
+                return Authorization(Effect.DENY, ("CONTROL_BLOCKED",))
+            return self.permissions.check(Action(run.id, self.subject, call, resources))
+        except Exception:
+            return Authorization(Effect.DENY, ("RESOURCE_OR_POLICY_ERROR",))
+
+    def _authorize_tool(self, call) -> bool:
+        # Invoked inside the controller admission lock: all policy/approval and
+        # resource facts are refreshed immediately before a permit is committed.
+        return self._authorization(call).effect is Effect.ALLOW
+
+    def _apply_authorization(self, call, authorization: Authorization) -> bool:
+        self.pending_approval = None
+        if authorization.effect is Effect.ALLOW:
+            return True
+        if authorization.effect is Effect.ASK:
+            if self.approval_mode == "wait":
+                self.pending_approval = authorization.approval
+                self.controller.wait("APPROVAL")
+                return False
+            try:
+                self.permissions.approvals.decide(
+                    authorization.approval.id, subject=self.subject, approve=False,
+                )
+            except ContractError:
+                pass  # An expired request still cannot authorize execution.
+            reason = "APPROVAL_UNAVAILABLE"
+        else:
+            reason = ";".join(authorization.reasons) or "POLICY_DENIED"
+        self.controller.record_unexecuted(call.id, ToolResult(ResultStatus.DENIED, error=reason))
+        return False
 
     def _time_left(self) -> float:
         return max(0, self.limits.run_seconds - (time.monotonic() - self._started))
@@ -185,14 +235,19 @@ class Engine:
                 if self._time_left() <= 0 or self.tool_calls >= self.limits.max_tool_calls:
                     self._stop(RunState.EXHAUSTED, "TOOL_OR_TIME_LIMIT")
                     break
-                if not self.tools.authorize(call):
-                    run.record_unexecuted(call.id, ToolResult(ResultStatus.DENIED, error="POLICY_DENIED"))
+                if not self._apply_authorization(call, self._authorization(call)):
+                    if run.state is not RunState.RUNNING:
+                        break
                     continue
                 try:
                     permit = run.grant_tool(call.id)
                 except ContractError:
                     if run.state is RunState.RUNNING:
-                        run.record_unexecuted(call.id, ToolResult(ResultStatus.DENIED, error="POLICY_DENIED"))
+                        latest = self._authorization(call)
+                        if latest.effect is Effect.ALLOW:
+                            self._stop(RunState.FAILED, "TOOL_ADMISSION_ERROR")
+                        else:
+                            self._apply_authorization(call, latest)
                     continue
                 self.tool_calls += 1
                 try:

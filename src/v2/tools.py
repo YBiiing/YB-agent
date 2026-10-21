@@ -92,6 +92,16 @@ class ReadOnlyTools:
             return False
         return True
 
+    def authorization_facts(self, call: ToolCall) -> dict[str, str]:
+        """Trusted resource identity; never take these facts from model arguments."""
+        path, relative = self._path(call)
+        try:
+            info = path.stat(follow_symlinks=False)
+            version = f"{info.st_dev}:{info.st_ino}:{info.st_size}:{info.st_mtime_ns}"
+        except FileNotFoundError:
+            version = "MISSING"
+        return {"project": str(self.project), "path": relative, "version": version, "access": "read"}
+
     def execute(self, call: ToolCall) -> ToolResult:
         try:
             path, relative = self._path(call)
