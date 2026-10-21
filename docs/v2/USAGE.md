@@ -56,4 +56,6 @@ harness-v2 --project E:\path\to\trusted-synthetic-project --task "先运行 chec
 
 离线回归统一使用 `python scripts/run_phase1_tests.py`，该入口隔离系统 keyring 并管理本项目测试临时目录。不要用测试失败输出检查真实凭据值。
 
+开发基线使用 `python scripts/run_v2_action_baseline.py --config E:\path\to\config.yaml --model deepseek-chat --category repair --runs 2`，检查类改为 `--category inspect`。每批最多 2 Run／12 模型请求，按已有每 Run 限额执行；只运行冻结的开发合成样本，最终样本不接受选择。该驱动自动批准的动作有额外样本边界，细节见 `evals/v2/SPEC.md`，不能作为通用项目的自动批准配置。归档位于 `.harness/phase1-evals/<唯一批次>`，包含全部请求、响应、输出和独立检查；正式真实结果会另行版本化。
+
 协议依据：[DeepSeek 工具调用](https://api-docs.deepseek.com/guides/tool_calls/)、[Chat Completions API](https://api-docs.deepseek.com/api/create-chat-completion/)。适配器使用非思考模式，保存原 assistant 工具调用信息，并按调用 ID 回传完整观测；不依赖 Beta strict 模式。
