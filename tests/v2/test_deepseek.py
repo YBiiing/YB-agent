@@ -1,4 +1,5 @@
 import json
+import hashlib
 
 import httpx
 import keyring
@@ -72,6 +73,10 @@ async def test_native_sdk_multistep_roundtrip_preserves_complete_assistant_and_t
         assert engine.model_requests == len(received) == 3
         assert engine.model_ledger.charged_tokens == 45
         assert all(item.phase == "OBSERVED" for item in engine.model_ledger.attempts)
+        assert len(model.recorded_requests) == len(model.recorded_replies) == 3
+        for encoded, attempt in zip(model.recorded_requests, engine.model_ledger.attempts, strict=True):
+            assert hashlib.sha256(encoded.encode("utf-8")).hexdigest() == attempt.input_sha256
+            assert "offline-synthetic-key" not in encoded
     finally:
         await model.close()
 

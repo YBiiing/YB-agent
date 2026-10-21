@@ -97,6 +97,19 @@ class Model:
     async def close(self) -> None:
         pass
 
+    def redact(self, text: str) -> str:
+        return text
+
+    def sanitize(self, value):
+        """Clone a JSON-compatible export, redacting strings at every level."""
+        if isinstance(value, str):
+            return self.redact(value)
+        if isinstance(value, dict):
+            return {self.redact(key): self.sanitize(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [self.sanitize(item) for item in value]
+        return value
+
     async def decide(self, context: ModelInput) -> Decision:
         raise NotImplementedError
 

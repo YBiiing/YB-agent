@@ -100,9 +100,12 @@ class DeepSeekModel(Model):
         self.max_output_tokens = max_output_tokens
         self._definitions_json = json.dumps(definitions, ensure_ascii=False, allow_nan=False)
         self._assistant: dict[str, str] = {}
+        self._requests: list[str] = []
+        self._replies: list[str] = []
         resolved_key = api_key if api_key is not None else load_api_key()
         if not isinstance(resolved_key, str) or not resolved_key.strip():
             raise ModelError("MODEL_CREDENTIAL_MISSING")
+        self._redact_key = resolved_key
         self._client = AsyncOpenAI(
             api_key=resolved_key,
             base_url=settings.base_url, max_retries=0, timeout=45,
@@ -111,6 +114,21 @@ class DeepSeekModel(Model):
 
     async def close(self):
         await self._client.close()
+
+    @property
+    def recorded_requests(self) -> tuple[str, ...]:
+        return tuple(self._requests)
+
+    @property
+    def recorded_replies(self) -> tuple[str, ...]:
+        return tuple(self._replies)
+
+    def redact(self, encoded: str) -> str:
+        fragment = self._redact_key
+        for _ in range(4):
+            encoded = encoded.replace(fragment, "[REDACTED]")
+            fragment = json.dumps(fragment, ensure_ascii=False)[1:-1]
+        return encoded
 
     def prepare(self, context: ModelInput) -> ModelRequest:
         system = (
@@ -172,10 +190,12 @@ class DeepSeekModel(Model):
             payload["tools"] = json.loads(self._definitions_json)
         else:
             payload["response_format"] = {"type": "json_object"}
-        return ModelRequest(
+        request = ModelRequest(
             context, json.dumps(payload, ensure_ascii=False, allow_nan=False),
             self.settings.reference, True, self.max_output_tokens,
         )
+        self._requests.append(self.redact(request.payload_json))
+        return request
 
     async def send(self, request: ModelRequest) -> ModelResponse:
         payload = request.payload
@@ -192,6 +212,7 @@ class DeepSeekModel(Model):
             raise ModelError("MODEL_CONNECTION_ERROR") from None
         except APIStatusError:
             raise ModelError("MODEL_HTTP_ERROR") from None
+        self._replies.append(self.redact(response.model_dump_json(exclude_none=True)))
         usage = None
         try:
             reported = response.usage

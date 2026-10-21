@@ -85,7 +85,8 @@ def main(argv: list[str] | None = None) -> int:
         limits=Limits(max_steps=arguments.max_steps),
     )
     run = asyncio.run(execute_and_close(engine))
-    print(json.dumps(run_report(run, model_ledger=engine.model_ledger), ensure_ascii=False, indent=2))
+    report = model.sanitize(run_report(run, model_ledger=engine.model_ledger))
+    print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if run.state is RunState.COMPLETED else 1
 
 
