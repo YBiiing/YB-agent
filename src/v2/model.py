@@ -17,7 +17,8 @@ class ModelInput:
 class ModelError(Exception):
     """A public, credential-free failure code at the adapter boundary."""
 
-    def __init__(self, code: str, *, usage=None, response_id=None, model=None, finish_reason=None):
+    def __init__(self, code: str, *, usage=None, response_id=None, model=None, finish_reason=None,
+                 retryable=False):
         super().__init__(code)
         self.code = code
         # Malformed provider/error metadata cannot be trusted for settlement.
@@ -25,6 +26,7 @@ class ModelError(Exception):
         self.response_id = response_id
         self.model = model
         self.finish_reason = finish_reason
+        self.retryable = retryable is True
 
 
 @dataclass(frozen=True, slots=True)

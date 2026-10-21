@@ -28,6 +28,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--format", choices=["native", "json"], default="native", help="model decision protocol")
     parser.add_argument("--read-file", action="append", help="mock demo file; repeat for multiple reads")
     parser.add_argument("--max-steps", type=int, choices=range(1, 7), default=6, help="step limit (1..6)")
+    parser.add_argument("--model-retries", type=int, choices=range(0, 3), default=0,
+                        help="outer retries per decision (0..2), within the existing request/token limits")
     parser.add_argument("--approvals", choices=["deny", "interactive", "control-file"], default="deny",
                         help="deny actions needing approval by default; explicitly enable human prompts")
     parser.add_argument("--control-file", type=Path, help="operator JSONL inbox outside project (append only)")
@@ -164,7 +166,8 @@ def main(argv: list[str] | None = None) -> int:
         tools.redact = model.redact
     engine = Engine(
         arguments.task, model, tools,
-        limits=Limits(max_steps=arguments.max_steps, run_seconds=arguments.run_seconds),
+        limits=Limits(max_steps=arguments.max_steps, run_seconds=arguments.run_seconds,
+                      max_model_retries=arguments.model_retries),
         approval_mode="wait" if arguments.approvals in ("interactive", "control-file") else "deny",
     )
     if arguments.start_paused:

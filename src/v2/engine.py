@@ -25,6 +25,8 @@ class Limits:
     max_input_bytes: int = 16_384
     max_output_tokens: int = 1024
     max_total_tokens: int = 131_072
+    max_model_retries: int = 0
+    retry_seconds: float = 0.25
 
     def __post_init__(self):
         for name in (
@@ -34,7 +36,9 @@ class Limits:
             value = getattr(self, name)
             if type(value) is not int or value <= 0:
                 raise ContractError(f"{name} must be a positive integer")
-        for name in ("run_seconds", "model_seconds", "tool_seconds"):
+        if type(self.max_model_retries) is not int or not 0 <= self.max_model_retries <= 2:
+            raise ContractError("max_model_retries must be an integer in 0..2")
+        for name in ("run_seconds", "model_seconds", "tool_seconds", "retry_seconds"):
             value = getattr(self, name)
             if type(value) not in (int, float) or not 0 < value < float("inf"):
                 raise ContractError(f"{name} must be finite and positive")
@@ -65,6 +69,8 @@ class Engine:
         self._executing = False
         self._pending_decision: Decision | None = None
         self._admitted_resources: dict[str, dict[str, str]] = {}
+        self._retry_counts: dict[str, int] = {}
+        self._retry_at: float | None = None
 
     def _authorization(self, call, *, admitting=False) -> Authorization:
         run = self.controller
@@ -127,6 +133,45 @@ class Engine:
         if self.controller.state not in TERMINAL:
             self.controller.stop(state, reason)
 
+    def _schedule_retry(self, step_id: str, error: ModelError) -> bool:
+        # Only rejected HTTP work or fully received invalid responses qualify.
+        # A transport timeout/connection failure may still be computing remotely.
+        eligible = error.code == "MODEL_RATE_LIMIT" or (
+            error.code == "MODEL_HTTP_ERROR" and error.retryable
+        ) or (error.code == "MODEL_PROTOCOL_ERROR" and error.usage is not None)
+        used = self._retry_counts.get(step_id, 0)
+        run = self.controller
+        if not eligible or used >= self.limits.max_model_retries or run.state in TERMINAL:
+            return False
+        self._retry_counts[step_id] = used + 1
+        self._retry_at = time.monotonic() + self.limits.retry_seconds * (2 ** used)
+        return True
+
+    async def _await_retry(self) -> bool:
+        if self._retry_at is None:
+            return True
+        run = self.controller
+        if time.monotonic() < self._retry_at:
+            run.wait("MODEL_RETRY")
+            try:
+                while run.state is RunState.WAITING and run.control is Control.NONE:
+                    self.check_deadline()
+                    delay = min(self._retry_at - time.monotonic(), self._time_left(), 0.05)
+                    if run.state in TERMINAL or delay <= 0:
+                        break
+                    await asyncio.sleep(delay)
+            except asyncio.CancelledError:
+                run.request_cancel()
+                raise
+            if run.state is RunState.WAITING and run.control is Control.NONE:
+                run.wake()
+                run.start()
+        self.check_deadline()
+        if run.state is not RunState.RUNNING:
+            return False
+        self._retry_at = None
+        return True
+
     async def execute(self) -> RunController:
         if self._executing:
             raise ContractError("run already has an executor")
@@ -163,6 +208,8 @@ class Engine:
             step = run.current_step
             if step.decision is None:
                 if self._pending_decision is None:
+                    if not await self._await_retry():
+                        break
                     if self.model_requests >= self.limits.max_model_requests:
                         self._stop(RunState.EXHAUSTED, "MODEL_REQUEST_LIMIT")
                         break
@@ -212,8 +259,15 @@ class Engine:
                             finish_reason=getattr(error, "finish_reason", None),
                         )
                         run.finish_model(permit, ResultStatus.FAILED)
-                        if isinstance(error, TimeoutError) and self._time_left() <= 0:
+                        if self._time_left() <= 0:
                             self._stop(RunState.EXHAUSTED, "RUN_TIME_LIMIT")
+                        elif self.model_ledger.charged_tokens > self.limits.max_total_tokens or (
+                            getattr(error, "usage", None) is not None
+                            and error.usage.output_tokens > request.max_output_tokens and request.billable
+                        ):
+                            self._stop(RunState.EXHAUSTED, "MODEL_TOKEN_LIMIT")
+                        elif isinstance(error, ModelError) and self._schedule_retry(step.id, error):
+                            continue
                         else:
                             reason = error.code if isinstance(error, ModelError) else "MODEL_TIMEOUT"
                             self._stop(RunState.FAILED, reason)

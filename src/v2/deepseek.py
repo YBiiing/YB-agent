@@ -216,8 +216,8 @@ class DeepSeekModel(Model):
             raise ModelError("MODEL_TIMEOUT") from None
         except APIConnectionError:
             raise ModelError("MODEL_CONNECTION_ERROR") from None
-        except APIStatusError:
-            raise ModelError("MODEL_HTTP_ERROR") from None
+        except APIStatusError as error:
+            raise ModelError("MODEL_HTTP_ERROR", retryable=500 <= error.status_code <= 599) from None
         self._replies.append(self.redact(response.model_dump_json(exclude_none=True)))
         usage = None
         try:
