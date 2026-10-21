@@ -11,7 +11,7 @@ from src.v2.policy import (
     Action, Approval, Authorization, Effect, PermissionService, PolicySet, basic_tool_policy,
 )
 from src.v2.protocol import ContractError, Decision, DecisionKind, ResultStatus, ToolResult, require_text
-from src.v2.tools import ReadOnlyTools
+from src.v2.tools import PolicyDenied, ReadOnlyTools
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +74,8 @@ class Engine:
             if run.state is not RunState.RUNNING or run.control is not Control.NONE:
                 return Authorization(Effect.DENY, ("CONTROL_BLOCKED",))
             return self.permissions.check(Action(run.id, self.subject, call, resources))
+        except PolicyDenied as error:
+            return Authorization(Effect.DENY, (error.code,))
         except Exception:
             return Authorization(Effect.DENY, ("RESOURCE_OR_POLICY_ERROR",))
 
@@ -240,6 +242,13 @@ class Engine:
                         break
                     continue
                 try:
+                    effect = self.tools.may_have_effects(call)
+                    if type(effect) is not bool:
+                        raise ContractError("invalid effect declaration")
+                except Exception:
+                    run.record_unexecuted(call.id, ToolResult(ResultStatus.DENIED, error="TOOL_METADATA_ERROR"))
+                    continue
+                try:
                     permit = run.grant_tool(call.id)
                 except ContractError:
                     if run.state is RunState.RUNNING:
@@ -256,14 +265,20 @@ class Engine:
                         timeout=min(self._time_left(), self.limits.tool_seconds),
                     )
                 except TimeoutError:
-                    # This slice contains only bounded reads: no side effect to retry/reconcile.
-                    result = ToolResult(ResultStatus.FAILED, error="READ_TIMEOUT")
+                    if effect:
+                        result = ToolResult(ResultStatus.UNKNOWN, error="TOOL_TIMEOUT_UNKNOWN")
+                    else:
+                        result = ToolResult(ResultStatus.FAILED, error="READ_TIMEOUT")
                 except asyncio.CancelledError:
                     run.request_cancel()
-                    run.finish_tool(permit, ToolResult(ResultStatus.FAILED, error="READ_WAIT_CANCELLED"))
+                    run.finish_tool(permit, ToolResult(
+                        ResultStatus.UNKNOWN if effect else ResultStatus.FAILED,
+                        error="TOOL_WAIT_CANCELLED_UNKNOWN" if effect else "READ_WAIT_CANCELLED",
+                    ))
                     raise
                 except Exception:
-                    result = ToolResult(ResultStatus.FAILED, error="READ_INTERNAL_ERROR")
+                    result = ToolResult(ResultStatus.UNKNOWN if effect else ResultStatus.FAILED,
+                                        error="TOOL_INTERNAL_ERROR_UNKNOWN" if effect else "READ_INTERNAL_ERROR")
                 run.finish_tool(permit, result)
                 if result.error == "READ_TIMEOUT":
                     # A timed-out thread may still be reading. Do not dispatch more work.

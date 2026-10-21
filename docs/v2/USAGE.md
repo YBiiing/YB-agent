@@ -30,11 +30,13 @@ harness-v2 --project E:\path\to\synthetic-project --task "从 README.md 的入�
 
 ## 输出与限制
 
-stdout 输出 JSON 报告，含 Run/Step/Decision/调用/观测/尝试/事件及模型用量。退出码 0 表示运行正常交付，1 表示未正常交付，2 表示配置或参数错误。`COMPLETED` 不等于目标验收 `PASSED`；当前 Assessment 保持 `UNVERIFIED`。完整持久审计、正式独立验收、写工具、命令及 CLI 运行中的暂停/继续控制由后续小目标交付。
+stdout 输出 JSON 报告，含 Run/Step/Decision/调用/观测/尝试/事件及模型用量。退出码 0 表示运行正常交付，1 表示未正常交付，2 表示配置或参数错误。`COMPLETED` 不等于目标验收 `PASSED`；当前 Assessment 保持 `UNVERIFIED`。完整持久审计、正式独立验收、命令及 CLI 运行中的暂停/继续控制由后续小目标交付。
 
-审批机制已接入启动边界：默认 `--approvals deny` 对需要人类批准的动作返回拒绝反馈；`--approvals interactive` 展示具体动作，输入 `yes` 批准、`cancel` 取消，其他输入（包括 EOF）拒绝。审批绑定当前 Run、主体、动作参数/版本、可信资源事实、策略版本和期限；资源变化或过期会重新申请，硬拒绝不能被批准覆盖。真实工具目前仍只有读取，因此实际写入/命令审批场景要等 P1-06 工具交付；当前效应路径使用不写文件的合成执行器验证。
+审批机制已接入启动边界：默认 `--approvals deny` 对需要人类批准的动作返回拒绝反馈；`--approvals interactive` 展示具体动作，输入 `yes` 批准、`cancel` 取消，其他输入（包括 EOF）拒绝。审批绑定当前 Run、主体、动作参数/版本、可信资源事实、策略版本和期限；资源变化或过期会重新申请，硬拒绝不能被批准覆盖。
 
-当前读取授权事实使用路径及文件 stat 身份/版本，不把它作为写前内容校验。写入的内容哈希/冲突机制及完整 CLI 运行中控制在后续对应任务交付。
+默认 `--tools read`。显式 `--tools workspace --approvals interactive` 增加 `write_file(path, content, expected_sha256)`，模型必须提供读取时的内容 SHA-256，新文件使用 `MISSING`。只在已有目录内写入，内容为有界 UTF-8；敏感路径、链接、范围外路径仍拒绝。执行前与提交前重新核对版本，既有文件暂存后替换，新文件无覆盖发布。结果不明标记 `UNKNOWN` 并终止，不自动重试；线程超时不代表底层写入已经停止。
+
+写入面向受控单写者工作区，哈希检查与替换不是抵御不合作外部写者的原子条件写入，也不保证崩溃后的持久恢复。当前读取授权事实使用路径及 stat 版本，写入使用真实内容哈希。完整 CLI 运行中控制后续交付。
 
 离线回归统一使用 `python scripts/run_phase1_tests.py`，该入口隔离系统 keyring 并管理本项目测试临时目录。不要用测试失败输出检查真实凭据值。
 

@@ -9,12 +9,17 @@ import json
 import os
 from pathlib import Path, PureWindowsPath
 import stat
+import re
 
 from src.v2.protocol import ContractError, ResultStatus, ToolCall, ToolResult
 
 
 class PolicyDenied(ContractError):
-    pass
+    def __init__(self, code: str):
+        if not isinstance(code, str) or re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", code) is None:
+            raise ContractError("invalid tool policy error code")
+        self.code = code
+        super().__init__(code)
 
 
 class ReadOnlyTools:
@@ -46,7 +51,11 @@ class ReadOnlyTools:
         arguments = call.arguments
         if set(arguments) != {"path"} or not isinstance(arguments["path"], str):
             raise PolicyDenied("INVALID_ARGUMENTS")
-        raw = arguments["path"]
+        return self._resolve(arguments["path"])
+
+    def _resolve(self, raw: str) -> tuple[Path, str]:
+        if not isinstance(raw, str):
+            raise PolicyDenied("INVALID_ARGUMENTS")
         windows = PureWindowsPath(raw)
         # Treat both OS path syntaxes consistently, including ADS and device names.
         if not raw or "\x00" in raw or ":" in raw or windows.drive or windows.root:
@@ -91,6 +100,9 @@ class ReadOnlyTools:
         except (ContractError, OSError, ValueError):
             return False
         return True
+
+    def may_have_effects(self, call: ToolCall) -> bool:
+        return False
 
     def authorization_facts(self, call: ToolCall) -> dict[str, str]:
         """Trusted resource identity; never take these facts from model arguments."""

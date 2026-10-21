@@ -141,3 +141,11 @@
 - P1-05 已完成；读取资源事实是路径/stat 绑定，不冒充写前内容哈希或实际写/命令证明。继续 P1-06 真实工具与对应能力基线。
 
 - P1-05 收尾 V2 全量 212 passed、2 skipped，src/tests/scripts ruff 通过；两项跳过仍为本机 symlink 创建权限，Windows junction/hardlink 用例实际通过。
+
+## P1-06a：有版本约束的受控写入
+
+- P1-05 提交：`38d8e51`。新增显式 workspace 工具集，默认仍为只读；写入必须通过独立动作审批，可信资源事实使用真实内容哈希。
+- 参数、路径、范围、UTF-8 与大小均受限；执行前与提交前复核版本。既有文件暂存、flush/fsync 后替换；新文件通过同目录 hardlink 无覆盖发布，竞争出现的文件不会被覆盖。
+- 提交前错误明确失败，提交后异常、核对不明及副作用等待超时按 UNKNOWN 处理；终止 Run、跳过后续调用，不假定可安全重试。工具副作用元数据在许可前验证并缓存。
+- 独立写入测试 17 passed；收尾 V2 229 passed、2 skipped，ruff 通过。两个 subagent 分别独立验证 69 passed 及只读 31 passed/2 skipped、综合 69 passed/2 skipped，均未发现阻塞。跳过为 symlink 权限限制，junction/hardlink 已实际验证。
+- 保证限于受控单写者工作区；不把哈希检查描述为文件系统 CAS，不把 fsync 描述为崩溃恢复。P1-06 命令、反馈及对应真实基线尚未完成。

@@ -14,6 +14,7 @@ from src.v2.model import ModelError, ScriptedModel
 from src.v2.protocol import ContractError, Decision, ResultStatus, ToolCall
 from src.v2.report import run_report
 from src.v2.tools import ReadOnlyTools
+from src.v2.workspace_tools import WorkspaceTools
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,6 +28,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-steps", type=int, choices=range(1, 7), default=6, help="step limit (1..6)")
     parser.add_argument("--approvals", choices=["deny", "interactive"], default="deny",
                         help="deny actions needing approval by default; explicitly enable human prompts")
+    parser.add_argument("--tools", choices=["read", "workspace"], default="read",
+                        help="read-only by default; workspace adds approved version-checked writes")
     return parser
 
 
@@ -104,7 +107,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("project must be an existing directory")
     if not arguments.model or not arguments.model.strip():
         parser.error("model is not configured; select --model explicitly")
-    tools = ReadOnlyTools(arguments.project)
+    tools = WorkspaceTools(arguments.project) if arguments.tools == "workspace" else ReadOnlyTools(arguments.project)
     if arguments.model == "mock":
         model = mock_reader(arguments.read_file or ["README.md"])
     else:
