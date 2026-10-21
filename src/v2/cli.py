@@ -8,6 +8,7 @@ import sys
 
 from src.cli.console import configure_console_io
 from src.v2.controller import TERMINAL, RunState
+from src.v2.command_tools import CommandTools
 from src.v2.deepseek import DeepSeekModel, DeepSeekSettings
 from src.v2.engine import Engine, Limits
 from src.v2.model import ModelError, ScriptedModel
@@ -28,8 +29,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-steps", type=int, choices=range(1, 7), default=6, help="step limit (1..6)")
     parser.add_argument("--approvals", choices=["deny", "interactive"], default="deny",
                         help="deny actions needing approval by default; explicitly enable human prompts")
-    parser.add_argument("--tools", choices=["read", "workspace"], default="read",
-                        help="read-only by default; workspace adds approved version-checked writes")
+    parser.add_argument("--tools", choices=["read", "workspace", "commands"], default="read",
+                        help="read-only by default; workspace adds writes; commands adds scoped Python checks (Windows)")
+    parser.add_argument("--command-script", action="append", help="approved project-relative Python script; repeatable")
+    parser.add_argument("--command-input", action="append", help="declared command input version to bind; repeatable")
+    parser.add_argument("--artifact-dir", type=Path, help="command output directory, required outside project")
     return parser
 
 
@@ -107,7 +111,20 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("project must be an existing directory")
     if not arguments.model or not arguments.model.strip():
         parser.error("model is not configured; select --model explicitly")
-    tools = WorkspaceTools(arguments.project) if arguments.tools == "workspace" else ReadOnlyTools(arguments.project)
+    if arguments.tools != "commands" and (arguments.command_script or arguments.command_input or arguments.artifact_dir):
+        parser.error("command options require --tools commands")
+    try:
+        if arguments.tools == "commands":
+            if not arguments.command_script or arguments.artifact_dir is None:
+                parser.error("commands require --command-script and --artifact-dir outside project")
+            tools = CommandTools(
+                arguments.project, scripts=tuple(arguments.command_script),
+                inputs=tuple(arguments.command_input or ()), artifact_dir=arguments.artifact_dir,
+            )
+        else:
+            tools = WorkspaceTools(arguments.project) if arguments.tools == "workspace" else ReadOnlyTools(arguments.project)
+    except (ContractError, OSError):
+        parser.error("invalid tool scope or artifact directory")
     if arguments.model == "mock":
         model = mock_reader(arguments.read_file or ["README.md"])
     else:
@@ -122,6 +139,8 @@ def main(argv: list[str] | None = None) -> int:
             model = DeepSeekModel(settings, tools.definitions)
         except ModelError as error:
             parser.error(error.code)
+    if isinstance(tools, CommandTools):
+        tools.redact = model.redact
     engine = Engine(
         arguments.task, model, tools,
         limits=Limits(max_steps=arguments.max_steps),

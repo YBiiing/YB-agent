@@ -73,3 +73,15 @@ def test_cli_budget_and_unsupported_model_fail_explicitly(tmp_path):
     unsupported = run_cli("--task", "read", "--project", str(tmp_path), "--model", "unknown")
     assert unsupported.returncode == 2
     assert "unsupported model" in unsupported.stderr
+
+
+def test_command_cli_requires_explicit_scope_and_external_artifacts(tmp_path):
+    base = ("--task", "check", "--project", str(tmp_path), "--model", "mock")
+    missing = run_cli(*base, "--tools", "commands")
+    assert missing.returncode == 2 and "--command-script" in missing.stderr
+    misplaced = run_cli(*base, "--command-script", "check.py")
+    assert misplaced.returncode == 2 and "--tools commands" in misplaced.stderr
+    internal = run_cli(*base, "--tools", "commands", "--command-script", "check.py",
+                       "--artifact-dir", str(tmp_path / "outputs"))
+    assert internal.returncode == 2 and "artifact" in internal.stderr
+    assert list(tmp_path.iterdir()) == []

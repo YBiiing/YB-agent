@@ -4,6 +4,7 @@ Path checks are defense in depth, not an OS sandbox against a concurrently
 hostile filesystem. Write/command tools are deliberately absent in this slice.
 """
 
+import asyncio
 import hashlib
 import json
 import os
@@ -20,6 +21,12 @@ class PolicyDenied(ContractError):
             raise ContractError("invalid tool policy error code")
         self.code = code
         super().__init__(code)
+
+
+class ToolWaitCancelled(asyncio.CancelledError):
+    def __init__(self, result: ToolResult):
+        self.result = result
+        super().__init__()
 
 
 class ReadOnlyTools:
@@ -103,6 +110,9 @@ class ReadOnlyTools:
 
     def may_have_effects(self, call: ToolCall) -> bool:
         return False
+
+    async def execute_async(self, call: ToolCall, *, seconds: float, cancel_requested=None, resources=None) -> ToolResult:
+        return await asyncio.wait_for(asyncio.to_thread(self.execute, call), timeout=seconds)
 
     def authorization_facts(self, call: ToolCall) -> dict[str, str]:
         """Trusted resource identity; never take these facts from model arguments."""

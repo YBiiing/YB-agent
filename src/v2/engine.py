@@ -11,7 +11,7 @@ from src.v2.policy import (
     Action, Approval, Authorization, Effect, PermissionService, PolicySet, basic_tool_policy,
 )
 from src.v2.protocol import ContractError, Decision, DecisionKind, ResultStatus, ToolResult, require_text
-from src.v2.tools import PolicyDenied, ReadOnlyTools
+from src.v2.tools import PolicyDenied, ReadOnlyTools, ToolWaitCancelled
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,8 +64,9 @@ class Engine:
         self._started: float | None = None
         self._executing = False
         self._pending_decision: Decision | None = None
+        self._admitted_resources: dict[str, dict[str, str]] = {}
 
-    def _authorization(self, call) -> Authorization:
+    def _authorization(self, call, *, admitting=False) -> Authorization:
         run = self.controller
         try:
             if not self.tools.authorize(call):
@@ -73,7 +74,10 @@ class Engine:
             resources = self.tools.authorization_facts(call)
             if run.state is not RunState.RUNNING or run.control is not Control.NONE:
                 return Authorization(Effect.DENY, ("CONTROL_BLOCKED",))
-            return self.permissions.check(Action(run.id, self.subject, call, resources))
+            authorization = self.permissions.check(Action(run.id, self.subject, call, resources))
+            if admitting and authorization.effect is Effect.ALLOW:
+                self._admitted_resources[call.id] = dict(resources)
+            return authorization
         except PolicyDenied as error:
             return Authorization(Effect.DENY, (error.code,))
         except Exception:
@@ -82,7 +86,7 @@ class Engine:
     def _authorize_tool(self, call) -> bool:
         # Invoked inside the controller admission lock: all policy/approval and
         # resource facts are refreshed immediately before a permit is committed.
-        return self._authorization(call).effect is Effect.ALLOW
+        return self._authorization(call, admitting=True).effect is Effect.ALLOW
 
     def _apply_authorization(self, call, authorization: Authorization) -> bool:
         self.pending_approval = None
@@ -260,21 +264,23 @@ class Engine:
                     continue
                 self.tool_calls += 1
                 try:
-                    result = await asyncio.wait_for(
-                        asyncio.to_thread(self.tools.execute, call),
-                        timeout=min(self._time_left(), self.limits.tool_seconds),
+                    result = await self.tools.execute_async(
+                        call, seconds=min(self._time_left(), self.limits.tool_seconds),
+                        cancel_requested=lambda: run.control is Control.CANCEL,
+                        resources=self._admitted_resources.pop(call.id),
                     )
                 except TimeoutError:
                     if effect:
                         result = ToolResult(ResultStatus.UNKNOWN, error="TOOL_TIMEOUT_UNKNOWN")
                     else:
                         result = ToolResult(ResultStatus.FAILED, error="READ_TIMEOUT")
-                except asyncio.CancelledError:
+                except asyncio.CancelledError as error:
                     run.request_cancel()
-                    run.finish_tool(permit, ToolResult(
+                    observed = error.result if isinstance(error, ToolWaitCancelled) else ToolResult(
                         ResultStatus.UNKNOWN if effect else ResultStatus.FAILED,
                         error="TOOL_WAIT_CANCELLED_UNKNOWN" if effect else "READ_WAIT_CANCELLED",
-                    ))
+                    )
+                    run.finish_tool(permit, observed)
                     raise
                 except Exception:
                     result = ToolResult(ResultStatus.UNKNOWN if effect else ResultStatus.FAILED,
