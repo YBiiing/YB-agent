@@ -38,6 +38,9 @@ class ReadOnlyTools:
             raise ContractError("read limit must be between 1 and 65536 bytes")
         self.max_read_bytes = max_read_bytes
 
+    def bind_run(self, run_id: str) -> None:
+        """Stateless file tools do not expose capabilities from another run."""
+
     @property
     def definitions(self) -> list[dict]:
         return [{

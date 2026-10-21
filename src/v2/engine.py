@@ -60,6 +60,7 @@ class Engine:
         self.approval_mode = approval_mode
         self.pending_approval: Approval | None = None
         self.controller = RunController(task, tool_authorizer=self._authorize_tool)
+        self.tools.bind_run(self.controller.id)
         self.limits = limits
         self.model_requests = 0
         self.tool_calls = 0

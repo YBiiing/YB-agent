@@ -7,7 +7,9 @@ import os
 from pathlib import Path
 from threading import Event
 from uuid import uuid4
+from copy import deepcopy
 
+from src.v2.artifacts import ARTIFACT_DEFINITION, ArtifactStore
 from src.v2.process import run_python
 from src.v2.protocol import ContractError, ResultStatus, ToolResult
 from src.v2.tools import PolicyDenied, ToolWaitCancelled
@@ -26,6 +28,10 @@ class CommandTools(WorkspaceTools):
         if self.artifact_dir.is_relative_to(self.project):
             raise ContractError("command artifacts must be outside the project")
         self.redact = redact
+        self.artifacts = ArtifactStore(self.artifact_dir)
+
+    def bind_run(self, run_id):
+        self.artifacts.bind_run(run_id)
 
     @property
     def definitions(self):
@@ -43,7 +49,7 @@ class CommandTools(WorkspaceTools):
                     }, "required": ["program", "args"], "additionalProperties": False,
                 },
             },
-        }]
+        }, deepcopy(ARTIFACT_DEFINITION)]
 
     def _command(self, call):
         if os.name != "nt":
@@ -61,6 +67,12 @@ class CommandTools(WorkspaceTools):
         return path, relative
 
     def authorize(self, call):
+        if call.name == "read_artifact":
+            try:
+                self.artifacts.facts(call)
+                return True
+            except (ContractError, OSError, ValueError):
+                return False
         if call.name != "run_command":
             return super().authorize(call)
         try:
@@ -73,6 +85,8 @@ class CommandTools(WorkspaceTools):
         return call.name == "run_command" or super().may_have_effects(call)
 
     def authorization_facts(self, call):
+        if call.name == "read_artifact":
+            return self.artifacts.facts(call)
         if call.name != "run_command":
             return super().authorization_facts(call)
         _, relative = self._command(call)
@@ -83,6 +97,8 @@ class CommandTools(WorkspaceTools):
                 "declared_inputs": json.dumps(hashes, sort_keys=True), "access": "execute"}
 
     def execute(self, call):
+        if call.name == "read_artifact":
+            return self.artifacts.read(call)
         if call.name != "run_command":
             return super().execute(call)
         return self._execute_command(call, seconds=5, cancel=Event())
@@ -124,6 +140,9 @@ class CommandTools(WorkspaceTools):
             edge = (4096 - len(marker)) // 2
             preview = text if len(text) <= 4096 else text[:edge] + marker + text[-edge:]
             metadata.update({
+                "artifact_id": self.artifacts.register(
+                    artifact, hashlib.sha256(stored).hexdigest(), len(stored), truncated=outcome.output_truncated,
+                ),
                 "output_artifact": str(artifact), "stored_sha256": hashlib.sha256(stored).hexdigest(),
                 "raw_output_bytes": len(outcome.output), "stored_bytes": len(stored),
                 "encoding": "UTF-8 with replacement; known credentials redacted",

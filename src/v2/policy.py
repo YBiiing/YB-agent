@@ -219,7 +219,7 @@ class PermissionService:
 
 
 def basic_tool_policy(action: Action) -> Verdict:
-    if action.call.name == "read_file":
+    if action.call.name in ("read_file", "read_artifact"):
         return Verdict(Effect.ALLOW)
     if action.call.name == "write_file":
         return Verdict(Effect.ASK, ("FILE_WRITE_REQUIRES_APPROVAL",), ("file_write",))

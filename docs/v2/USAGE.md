@@ -85,6 +85,10 @@ harness-v2 --project E:\path\to\trusted-synthetic-project --task "先运行 chec
 
 命令默认 5 秒，有界组合 stdout/stderr 最多 65536 bytes，超限终止进程树；保存完整的有界 UTF-8 输出（非法序列替换、已知凭据脱敏）及 SHA-256，模型反馈含最多 4096 字符的头尾预览、退出码、输入前后哈希和制品路径。达到硬上限的输出不宣称完整。非零退出表示检查发现问题或程序失败，工具的 `SUCCESS` 仅表示取得可靠执行观测，须查看 `exit_code`。
 
+命令反馈同时给出本 Run 的 `artifact_id` 与 `stored_bytes`；commands 工具集增加 `read_artifact(artifact_id, offset, length)`，offset 为从 0 开始的字节偏移，length 为 1..4096 bytes。查看尾部可选择 `max(0, stored_bytes-length)`；返回内容、下一偏移、制品 EOF、完整内容 SHA 和原始输出截断标记。字节页切在 UTF-8 字符中间会替换不完整字符，返回值明确说明编码，必要时调整偏移重读。
+
+该工具只读本工具执行器在当前 Run 注册的脱敏输出，不接受模型传入文件路径或任意目录，也不扫描既有制品目录。每次读取核对完整制品哈希和大小，内容变化不返回页面；链接／硬链接／reparse 拒绝。读取仍计入工具调用和时间预算，无须额外写入审批；历史制品不会因重启重新获得可执行 ID。CommandTools 实例绑定单个 Run，新 Run 应创建新执行器，以免跨 Run 暴露制品。制品 EOF 只表示读到已保存内容的末尾，`original_output_truncated=true` 时不能视为取得完整原始命令输出。
+
 隔离 launcher 加入 Windows Job 后才启动项目脚本；Job 不开启 breakaway，限制 16 个活动进程和 256 MiB 内存。子进程环境不继承模型 API 凭据，启用 UTF-8 并禁写 bytecode。超时／取消后尝试停止整棵进程树并确认 Job 无活动成员、已采样进程句柄退出；未采样短命进程的内核对象仍可能稍后清理。清理等待共用两秒额度，OS 调用及调度另计。无法确认停止或执行后的证据保存失败会报告 `UNKNOWN` 并终止 Run；不自动重试。
 
 停止确认不等于撤销副作用，反馈始终说明已启动命令可能产生副作用，非零退出同样如此。此能力只适用于可信受控代码；项目 cwd、输入声明、最小环境和 Job 都不能限制任意代码访问文件、网络或系统权限。当前仅验证 Windows，Linux 命令拒绝执行。监管依据为 [Microsoft Job Object API](https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-terminatejobobject)。
