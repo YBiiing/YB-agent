@@ -6,7 +6,7 @@ import pytest
 
 from src.v2.controller import RunState
 from src.v2.engine import Engine, Limits
-from src.v2.model import ModelError, ScriptedModel
+from src.v2.model import Model as ModelBase, ModelError, ScriptedModel
 from src.v2.protocol import ContractError, Decision, ResultStatus, ToolCall
 from src.v2.tools import ReadOnlyTools
 
@@ -55,7 +55,7 @@ async def test_batch_feedback_contains_failure_denial_and_success(tmp_path):
 
 @pytest.mark.parametrize("limit,reason", [("max_steps", "STEP_LIMIT"), ("max_model_requests", "MODEL_REQUEST_LIMIT")])
 async def test_infinite_model_stops_at_configured_bound(tmp_path, limit, reason):
-    class Repeating:
+    class Repeating(ModelBase):
         async def decide(self, context):
             return Decision.tools([ToolCall("read_file", {"path": "missing"})])
 
@@ -86,7 +86,7 @@ async def test_duplicate_call_ids_fail_before_second_tool_attempt(tmp_path):
 async def test_cancel_inflight_model_does_not_accept_late_decision(tmp_path):
     entered, release = asyncio.Event(), asyncio.Event()
 
-    class Model:
+    class Model(ModelBase):
         async def decide(self, context):
             entered.set()
             await release.wait()
@@ -107,7 +107,7 @@ async def test_cancel_inflight_model_does_not_accept_late_decision(tmp_path):
 async def test_pause_caches_model_response_until_same_process_resume(tmp_path):
     entered, release = asyncio.Event(), asyncio.Event()
 
-    class Model:
+    class Model(ModelBase):
         calls = 0
 
         async def decide(self, context):
@@ -131,7 +131,7 @@ async def test_pause_caches_model_response_until_same_process_resume(tmp_path):
 
 
 async def test_model_timeout_is_bounded_and_records_attempt(tmp_path):
-    class Model:
+    class Model(ModelBase):
         async def decide(self, context):
             await asyncio.Event().wait()
 
@@ -143,7 +143,7 @@ async def test_model_timeout_is_bounded_and_records_attempt(tmp_path):
 
 
 async def test_run_deadline_is_exhaustion_distinct_from_model_timeout(tmp_path):
-    class Model:
+    class Model(ModelBase):
         async def decide(self, context):
             await asyncio.Event().wait()
 
@@ -157,7 +157,7 @@ async def test_run_deadline_is_exhaustion_distinct_from_model_timeout(tmp_path):
 async def test_executor_cancellation_does_not_leave_active_model_permit(tmp_path):
     entered = asyncio.Event()
 
-    class Model:
+    class Model(ModelBase):
         async def decide(self, context):
             entered.set()
             await asyncio.Event().wait()
@@ -190,7 +190,7 @@ async def test_tool_attempt_limit_records_remaining_calls_as_unexecuted(tmp_path
 
 
 async def test_unexpected_model_error_is_sanitized(tmp_path):
-    class Model:
+    class Model(ModelBase):
         async def decide(self, context):
             raise RuntimeError("synthetic-sensitive-value")
 
@@ -217,7 +217,7 @@ def test_invalid_limits_are_rejected(arguments):
 async def test_pause_does_not_hide_model_failure_or_timeout(tmp_path, failure, reason):
     entered, release = asyncio.Event(), asyncio.Event()
 
-    class Model:
+    class Model(ModelBase):
         async def decide(self, context):
             entered.set()
             await release.wait()

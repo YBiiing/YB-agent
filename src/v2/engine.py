@@ -4,8 +4,9 @@ import asyncio
 from dataclasses import dataclass
 import time
 
-from src.v2.controller import TERMINAL, RunController, RunState, Task
-from src.v2.model import Model, ModelError, ModelInput
+from src.v2.controller import TERMINAL, Control, RunController, RunState, Task
+from src.v2.model import Model, ModelError, ModelInput, ModelResponse
+from src.v2.model_budget import ModelBudgetError, ModelLedger
 from src.v2.protocol import ContractError, Decision, DecisionKind, ResultStatus, ToolResult
 from src.v2.tools import ReadOnlyTools
 
@@ -18,9 +19,15 @@ class Limits:
     run_seconds: float = 180
     model_seconds: float = 45
     tool_seconds: float = 5
+    max_input_bytes: int = 16_384
+    max_output_tokens: int = 1024
+    max_total_tokens: int = 131_072
 
     def __post_init__(self):
-        for name in ("max_steps", "max_model_requests", "max_tool_calls"):
+        for name in (
+            "max_steps", "max_model_requests", "max_tool_calls",
+            "max_input_bytes", "max_output_tokens", "max_total_tokens",
+        ):
             value = getattr(self, name)
             if type(value) is not int or value <= 0:
                 raise ContractError(f"{name} must be a positive integer")
@@ -38,6 +45,10 @@ class Engine:
         self.limits = limits
         self.model_requests = 0
         self.tool_calls = 0
+        self.model_ledger = ModelLedger(
+            max_input_bytes=limits.max_input_bytes, max_output_tokens=limits.max_output_tokens,
+            max_total_tokens=limits.max_total_tokens,
+        )
         self._started: float | None = None
         self._executing = False
         self._pending_decision: Decision | None = None
@@ -89,20 +100,49 @@ class Engine:
                     if self.model_requests >= self.limits.max_model_requests:
                         self._stop(RunState.EXHAUSTED, "MODEL_REQUEST_LIMIT")
                         break
-                    permit = run.grant_model()
+                    try:
+                        request = self.model.prepare(ModelInput(run.task, run.steps[:-1]))
+                        intent = self.model_ledger.prepare(request, step.id)
+                    except ModelBudgetError as error:
+                        self._stop(RunState.EXHAUSTED, error.code)
+                        break
+                    except ModelError as error:
+                        self._stop(RunState.FAILED, error.code)
+                        break
+                    except Exception:
+                        self._stop(RunState.FAILED, "MODEL_PREPARATION_ERROR")
+                        break
+                    try:
+                        permit = run.grant_model()
+                    except ContractError:
+                        self.model_ledger.abandon(intent.id, "ADMISSION_BLOCKED")
+                        raise
+                    if run.control is not Control.NONE:
+                        self.model_ledger.abandon(intent.id, "CONTROL_BEFORE_SEND")
+                        run.finish_model(permit, ResultStatus.FAILED)
+                        break
+                    self.model_ledger.sent(intent.id)
                     self.model_requests += 1
                     try:
                         response = await asyncio.wait_for(
-                            self.model.decide(ModelInput(run.task, run.steps[:-1])),
+                            self.model.send(request),
                             timeout=min(self._time_left(), self.limits.model_seconds),
                         )
-                        if not isinstance(response, Decision):
+                        if not isinstance(response, ModelResponse):
                             raise ModelError("MODEL_PROTOCOL_ERROR")
                     except asyncio.CancelledError:
+                        self.model_ledger.failed(intent.id, "MODEL_WAIT_CANCELLED")
                         run.request_cancel()
                         run.finish_model(permit, ResultStatus.UNKNOWN)
                         raise
                     except (ModelError, TimeoutError) as error:
+                        code = error.code if isinstance(error, ModelError) else "MODEL_TIMEOUT"
+                        self.model_ledger.failed(
+                            intent.id, code, usage=getattr(error, "usage", None),
+                            response_id=getattr(error, "response_id", None),
+                            model=getattr(error, "model", None),
+                            finish_reason=getattr(error, "finish_reason", None),
+                        )
                         run.finish_model(permit, ResultStatus.FAILED)
                         if isinstance(error, TimeoutError) and self._time_left() <= 0:
                             self._stop(RunState.EXHAUSTED, "RUN_TIME_LIMIT")
@@ -111,11 +151,19 @@ class Engine:
                             self._stop(RunState.FAILED, reason)
                         break
                     except Exception:
+                        self.model_ledger.failed(intent.id, "MODEL_INTERNAL_ERROR")
                         run.finish_model(permit, ResultStatus.FAILED)
                         self._stop(RunState.FAILED, "MODEL_INTERNAL_ERROR")
                         break
+                    self.model_ledger.observed(intent.id, response)
                     run.finish_model(permit, ResultStatus.SUCCESS)
-                    self._pending_decision = response
+                    if self.model_ledger.charged_tokens > self.limits.max_total_tokens or (
+                        request.billable and response.usage is not None
+                        and response.usage.output_tokens > request.max_output_tokens
+                    ):
+                        self._stop(RunState.EXHAUSTED, "MODEL_TOKEN_LIMIT")
+                        break
+                    self._pending_decision = response.decision
                     if run.state is not RunState.RUNNING:
                         break
                 try:

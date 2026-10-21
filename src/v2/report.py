@@ -1,9 +1,11 @@
 """Inspectable in-memory report; durable audit is a later plan slice."""
 
 from src.v2.controller import RunController
+from src.v2.model_budget import ModelLedger
+from dataclasses import asdict
 
 
-def run_report(run: RunController) -> dict:
+def run_report(run: RunController, *, model_ledger: ModelLedger | None = None) -> dict:
     return {
         "schema_version": 1,
         "run_id": run.id,
@@ -12,6 +14,10 @@ def run_report(run: RunController) -> dict:
         "reason": run.reason,
         "assessment": run.assessment,
         "final_answer": run.final_answer,
+        "model_usage": None if model_ledger is None else {
+            "charged_tokens": model_ledger.charged_tokens,
+            "attempts": [asdict(attempt) for attempt in model_ledger.attempts],
+        },
         "steps": [{
             "id": step.id,
             "index": step.index,
