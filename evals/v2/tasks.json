@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "dataset_version": 1,
+  "repetitions": 2,
+  "samples": [
+    {
+      "id": "read-dev-01",
+      "category": "read",
+      "split": "development",
+      "task": "从 README.md 的入口逐步读取配置，找出服务监听端口和环境。回答字段值及对应的相对文件路径。只读取文件，不修改、不运行程序。",
+      "files": {
+        "README.md": "Service configuration starts at docs/route.json. Follow its target field.\n",
+        "docs/route.json": "{\"target\": \"settings/service.json\"}\n",
+        "settings/service.json": "{\"port\": 8042, \"environment\": \"staging\"}\n"
+      },
+      "required_reads": ["README.md", "docs/route.json", "settings/service.json"],
+      "facts": ["8042", "staging", "settings/service.json"],
+      "allowed_changes": []
+    },
+    {
+      "id": "read-final-01",
+      "category": "read",
+      "split": "final",
+      "task": "从 README.md 的入口逐步读取配置，找出缓存池大小和区域。回答字段值及对应的相对文件路径。只读取文件，不修改、不运行程序。",
+      "files": {
+        "README.md": "Cache setup starts at routing.json. Follow the selected_file field.\n",
+        "routing.json": "{\"selected_file\": \"data/cache.json\"}\n",
+        "data/cache.json": "{\"pool_size\": 37, \"region\": \"cn-north-eval\"}\n"
+      },
+      "required_reads": ["README.md", "routing.json", "data/cache.json"],
+      "facts": ["37", "cn-north-eval", "data/cache.json"],
+      "allowed_changes": []
+    },
+    {
+      "id": "repair-dev-01",
+      "category": "repair",
+      "split": "development",
+      "task": "阅读 calculator.py 和 check.py，先执行 check.py 确认失败。仅修改 calculator.py 修复 add 的加法行为，再运行 check.py 验证。不要修改检查脚本或新增文件。说明观察到的前后结果。",
+      "files": {
+        "calculator.py": "def add(a, b):\n    return a - b\n",
+        "check.py": "import sys\nsys.dont_write_bytecode = True\nfrom calculator import add\nassert add(2, 3) == 5\nassert add(-4, 7) == 3\nassert add(0, 0) == 0\nprint('ADD_CHECK_PASS')\n"
+      },
+      "required_reads": ["calculator.py", "check.py"],
+      "check": "check.py",
+      "success_marker": "ADD_CHECK_PASS",
+      "allowed_changes": ["calculator.py"]
+    },
+    {
+      "id": "repair-final-01",
+      "category": "repair",
+      "split": "final",
+      "task": "阅读 labels.py 和 check.py，先执行 check.py 确认失败。仅修改 labels.py，使 normalize_label 去除首尾空格、转为小写并将连续空白连接为单个连字符，再运行 check.py。不要修改检查脚本或新增文件，说明前后结果。",
+      "files": {
+        "labels.py": "def normalize_label(text):\n    return text.strip().upper().replace(' ', '-')\n",
+        "check.py": "import sys\nsys.dont_write_bytecode = True\nfrom labels import normalize_label\nassert normalize_label('  Hello   World ') == 'hello-world'\nassert normalize_label('A\\tB') == 'a-b'\nassert normalize_label('') == ''\nprint('LABEL_CHECK_PASS')\n"
+      },
+      "required_reads": ["labels.py", "check.py"],
+      "check": "check.py",
+      "success_marker": "LABEL_CHECK_PASS",
+      "allowed_changes": ["labels.py"]
+    },
+    {
+      "id": "inspect-dev-01",
+      "category": "inspect",
+      "split": "development",
+      "task": "阅读 README.md、services.json、check.py 并运行 check.py，报告哪些服务共用了不应重复的端口以及检查退出结果。只检查，不修改、不新增文件；不要将存在冲突描述为全部通过。",
+      "files": {
+        "README.md": "Each service must have a unique port. Run check.py to verify services.json.\n",
+        "services.json": "{\"web\": 8080, \"worker\": 8080, \"metrics\": 9090}\n",
+        "check.py": "import json\nfrom pathlib import Path\nports = json.loads(Path('services.json').read_text())\nconflict = len(set(ports.values())) != len(ports)\nprint('PORT_CONFLICT' if conflict else 'PORTS_UNIQUE')\nraise SystemExit(1 if conflict else 0)\n"
+      },
+      "required_reads": ["README.md", "services.json", "check.py"],
+      "check": "check.py",
+      "expected_exit": 1,
+      "facts": ["web", "worker", "8080", "PORT_CONFLICT"],
+      "allowed_changes": []
+    },
+    {
+      "id": "inspect-final-01",
+      "category": "inspect",
+      "split": "final",
+      "task": "阅读 README.md、limits.json、check.py 并运行 check.py，报告哪些作业超过文档规定的重试上限，以及检查退出结果。只检查，不修改、不新增文件；不要将超限描述为全部通过。",
+      "files": {
+        "README.md": "Every job may retry at most 3 times. Run check.py to validate limits.json.\n",
+        "limits.json": "{\"alpha\": 2, \"beta\": 5, \"gamma\": 1}\n",
+        "check.py": "import json\nfrom pathlib import Path\nlimits = json.loads(Path('limits.json').read_text())\nbad = [job for job, count in limits.items() if count > 3]\nprint('RETRY_LIMIT_EXCEEDED:' + ','.join(bad) if bad else 'RETRY_LIMITS_OK')\nraise SystemExit(1 if bad else 0)\n"
+      },
+      "required_reads": ["README.md", "limits.json", "check.py"],
+      "check": "check.py",
+      "expected_exit": 1,
+      "facts": ["beta", "5", "3", "RETRY_LIMIT_EXCEEDED"],
+      "allowed_changes": []
+    }
+  ]
+}
