@@ -131,7 +131,18 @@ async def run_batch(config: Path, model_name: str, runs: int):
                                           "max_requests": limits.max_model_requests}), flush=True)
                         return await super().send(request)
 
-                model = ProgressModel(settings, tools.definitions)
+                try:
+                    model = ProgressModel(settings, tools.definitions)
+                except Exception as error:
+                    code = error.code if isinstance(error, ModelError) else "MODEL_INITIALIZATION_ERROR"
+                    summary = {
+                        "trial": index, "state": "NOT_STARTED", "reason": code,
+                        "assessment": "FAILED", "model_requests": 0, "charged_tokens": 0,
+                        "trial_errors": ["MODEL_SETUP_ERROR"],
+                    }
+                    results.append(summary)
+                    save(output / f"setup-{index:02}.json", summary)
+                    raise ModelError(code) from None
                 summary, error = await execute_trial(sample, project, model, limits, index, output)
                 results.append(summary)
                 print(json.dumps({"event": "run_finished", **summary}, ensure_ascii=False), flush=True)

@@ -234,3 +234,16 @@ async def test_preparation_is_offline_and_input_is_a_billable_full_payload(tmp_p
         assert "offline-synthetic-key" not in prepared.payload_json
     finally:
         await model.close()
+
+
+@pytest.mark.parametrize("exception,code", [
+    (ImportError("synthetic dependency detail"), "MODEL_PROXY_DEPENDENCY_MISSING"),
+    (ValueError("synthetic-sensitive-proxy-detail"), "MODEL_CLIENT_SETUP_ERROR"),
+])
+def test_http_client_setup_failure_is_a_safe_model_error(tmp_path, monkeypatch, exception, code):
+    def fail_client(**kwargs):
+        raise exception
+
+    monkeypatch.setattr(httpx, "AsyncClient", fail_client)
+    with pytest.raises(ModelError, match=code):
+        DeepSeekModel(DeepSeekSettings(), ReadOnlyTools(tmp_path).definitions, api_key="offline-synthetic-key")

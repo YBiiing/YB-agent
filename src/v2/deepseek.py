@@ -106,10 +106,16 @@ class DeepSeekModel(Model):
         if not isinstance(resolved_key, str) or not resolved_key.strip():
             raise ModelError("MODEL_CREDENTIAL_MISSING")
         self._redact_key = resolved_key
+        try:
+            http_client = httpx.AsyncClient(transport=transport, follow_redirects=False, timeout=45)
+        except ImportError:
+            raise ModelError("MODEL_PROXY_DEPENDENCY_MISSING") from None
+        except Exception:
+            raise ModelError("MODEL_CLIENT_SETUP_ERROR") from None
         self._client = AsyncOpenAI(
             api_key=resolved_key,
             base_url=settings.base_url, max_retries=0, timeout=45,
-            http_client=httpx.AsyncClient(transport=transport, follow_redirects=False, timeout=45),
+            http_client=http_client,
         )
 
     async def close(self):

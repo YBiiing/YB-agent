@@ -112,3 +112,19 @@ async def test_all_trial_archives_redact_known_key_in_answers_decisions_and_meta
         encoded = path.read_text(encoding="utf-8")
         assert key not in encoded
         assert "[REDACTED]" in encoded
+
+
+async def test_initialization_failure_records_zero_requests_and_stops_batch(tmp_path, monkeypatch):
+    class BadSetup(Stub):
+        def __init__(self, settings, definitions):
+            raise ModelError("MODEL_PROXY_DEPENDENCY_MISSING")
+
+    config = setup_batch(tmp_path, monkeypatch, BadSetup)
+    with pytest.raises(ModelError, match="MODEL_PROXY_DEPENDENCY_MISSING"):
+        await driver.run_batch(config, "deepseek-chat", 2)
+    output = next((tmp_path / ".harness/phase1-evals").iterdir())
+    startup = json.loads((output / "setup-01.json").read_text(encoding="utf-8"))
+    assert startup["state"] == "NOT_STARTED"
+    assert startup["model_requests"] == startup["charged_tokens"] == 0
+    assert not (output / "setup-02.json").exists()
+    assert json.loads((output / "summary.json").read_text(encoding="utf-8"))["results"] == [startup]

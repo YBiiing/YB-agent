@@ -12,6 +12,8 @@ harness-v2 --project E:\path\to\trusted-project --task "只读演示" --model mo
 
 也可以用 `python -m src.v2` 代替已安装入口。mock 按指定顺序读取并总结实际状态，只用于验证执行机制；它不会理解任意自然语言任务。未配置真实模型时不会静默切换到 mock。旧入口 `harness` 保留。
 
+若本机配置了 SOCKS 代理，使用 `python -m pip install -e ".[proxy]"` 安装 HTTP 客户端代理依赖。`MODEL_PROXY_DEPENDENCY_MISSING` 表示请求尚未发出即缺少该依赖；不通过关闭代理或改变系统网络设置解决。
+
 ## DeepSeek 只读任务
 
 显式提供已有 YAML 配置，其中 `llm.provider` 为 `deepseek`、`llm.model` 与参数一致、`llm.base_url` 为官方 HTTPS 地址（可含 `/v1`）。V2 仅读取模型选择和地址，不继承旧配置中更高的 Token 或循环额度，不自动应用旧环境变量覆盖。凭据从 `harness key set` 使用的系统 keyring 身份读取，缺失时读取 `HARNESS_API_KEY` 环境变量；不自动读取项目 `.env`。
