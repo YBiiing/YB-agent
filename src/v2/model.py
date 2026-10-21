@@ -94,6 +94,9 @@ class Model:
     def prepare(self, context: ModelInput) -> ModelRequest:
         return ModelRequest(context)
 
+    async def close(self) -> None:
+        pass
+
     async def decide(self, context: ModelInput) -> Decision:
         raise NotImplementedError
 

@@ -83,3 +83,12 @@
 - 两名 subagent 独立发现畸形 ModelError.usage 会在异常处理中再次抛错并遗留活动许可。先补回归复现失败，再在错误边界将非 ModelUsage 视为未知，保留预留并正常终止。
 - 修复后 V2 130 passed、2 skipped；ruff 通过。两名审核者分别独立复验预算 13 passed 和预算/引擎 44 passed，均关闭 P2、无新增阻断。
 - 此小目标仍全部离线；真实 SDK、凭据和供应商调用另在 P1-04b/c 实施，未声称真实验证通过。
+
+## P1-04b：真实供应商协议的离线适配
+
+- P1-04a 提交：`818aed1`。
+- 增加显式 DeepSeek 配置及 keyring/env 凭据引用，官方 HTTPS 地址限制、禁止重定向、SDK max_retries=0。CLI 显式 --config，支持 native/JSON 协议，执行后在同一事件循环关闭客户端。
+- 原生模式保留原 assistant 消息/工具参数及完整调用关联；JSON 模式不伪造原生 tool 消息。空响应、截断、重复 ID/JSON key、非有限值、不一致结束原因均拒绝产生可执行决策。
+- 使用真实 SDK + MockTransport 的离线测试验证多步回灌、认证/限流/HTTP/连接/超时单次请求、错误用量及合成秘密不泄露。协议核对官方 DeepSeek 文档，当前未改变旧入口或配置文件。
+- V2 155 passed、2 skipped，ruff 通过。两个 subagent 分别独立验证适配器 25 passed 与适配器/入口 32 passed，未发现阻断。
+- 当前尚未读取真实凭据或调用真实模型；P1-04 整体尚未完成。初步命令和限制写入 USAGE.md，后续随真实基线与能力交付更新。
