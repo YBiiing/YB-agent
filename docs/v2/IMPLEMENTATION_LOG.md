@@ -229,3 +229,11 @@
 - 最终预算覆盖完整序列化请求，候选渲染不记请求／计费／联网。native 保留原 assistant 与完整 call ID 对应；JSON 路径同样成组。6500 bytes 限额下实际 Windows 命令输出失败尾部，再凭制品 ID 读取并形成回答的离线模型闭环通过。
 - 相关测试 124 passed，后续 native／JSON 参数化补充后 Context 专项 11 passed；全部 src／tests／scripts ruff 和 diff 检查通过。六项正式历史录制回放兼容，真实模型调用零次。
 - 两位 subagent 独立复验分别 39 passed、56 passed，无阻断；第三位复核最终 native／JSON 测试补充，独立 11 passed，确认可提交。P1-08 已完成，继续 P1-09 本地审计、Evidence 与 Assessment。
+
+## P1-09a：版本化本地审计读写基础
+
+- 上下文提交：`7e6c86a`。新增项目外按 Run 新建的归档目录，报告／完整事件 JSONL／有界制品／最终提交清单；固定 schema、连续事件序号、SHA／字节数、每文件和合计上限。对象先经过适配器脱敏，再写临时文件、fsync／replace，最后提交 manifest。
+- reader 为只读接口，严格核对固定文件集、摘要、报告与 JSONL 事件、终态和两次清单；不完整／损坏／不支持记录不返回完整报告。OPEN 标识仍在运行或异常中断，FINAL 包含失败／取消等终态，完整性不替代任务验收。
+- 交叉审核发现同一制品 ID 可重新绑定内容，修复为来源摘要及截断属性不可变、不可遗漏；另补未脱敏制品来源摘要与保存摘要的一致性、版本号拒绝 bool／float。新增回归均在写盘前拒绝，保留旧有效快照。
+- 专项 31 passed，全 src／tests／scripts ruff 及 diff 检查通过。两位 subagent 首轮各独立 25 passed，修复后各独立 31 passed，确认问题关闭、可以提交。真实模型请求零次。
+- 格式与保证边界见 AUDIT.md。本切片尚未接入 Engine／CLI，不承诺每次执行已自动归档；后续继续执行边界、查询入口及 Evidence／Assessment，P1-09 仍进行中。没有数据库、恢复、自动重放或最后事件持久化保证。
