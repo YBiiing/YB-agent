@@ -246,3 +246,12 @@
 - 审核发现模型响应归档耗尽总限额后仍接受最终答案，修复为归档后再次检查截止；新增回归断言 EXHAUSTED、无 final_answer、保留已接收响应／费用及缓存决策。
 - 相关扩展回归首轮 195 passed，最终期限修复后专项 13 passed，全 src／tests／scripts ruff 和 diff 检查通过。两位 subagent 独立首轮分别 26／123 passed，最终复审分别 27 passed（含制品）与 13 passed，确认问题关闭、可提交。所有模型离线，真实请求零次。
 - 归档显式说明快照后动作可能已派发，PREPARED 不能推断安全重发。Evidence／Assessment 分层与新鲜度判定仍待下一切片，P1-09 未整体完成。
+
+## P1-09c：Evidence 分层、版本新鲜度与条件验收
+
+- 执行归档提交：`5303158`。新增不可变 Criterion／Evidence／CheckOutcome，自动引用已接受模型声明与工具观测；二者不能设置 criterion outcome。可信应用侧独立验证必须属于当前 Run／criterion、声明检查范围与至少一项资源 SHA，模型无提交验证的工具。
+- 纯计算 assess 以显式当前资源快照判定新鲜度；版本改变、资源缺失、未核对不能支持通过。必需失败不被多数通过覆盖，旧版本失败保留但不覆盖新版本有效检查，可选条件不阻断已满足的必需条件；缺失、部分和不确定分开报告。
+- UNKNOWN／未观测调用／未结束 Run／在途执行保存 unresolved，阻止总体 PASSED。run_report 增加条件与证据表、当前版本及新鲜度依据；普通 CLI 没有独立验收器时正常结束仍 UNVERIFIED，未知结果为 INCONCLUSIVE；磁盘查询不冒充实时复验。
+- 两位审核者共同发现独立验证可与自动证据复用 ID，修复为全局 ID 唯一并补碰撞回归。普通工具 JSON 自称独立验证不能提权，实际文件修改会使旧验证失效。
+- Evidence 专项 17 passed；包含归档、CLI、独立样本验收、基线驱动与六项历史回放的相关组合 122 passed，全 src／tests／scripts ruff 和 diff 检查通过。两位 subagent 首轮各实际复验 64 passed，最终分别 17／67 passed，确认问题关闭、可提交；真实请求零次。
+- P1-09 已完成。通用 API 不执行新脚本或解释任意自然语言，冻结任务的独立验收器仍使用原明确判据；未增加恢复或自动重放。继续 P1-10 跨模块契约回归。

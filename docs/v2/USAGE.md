@@ -119,4 +119,4 @@ harness-v2 --inspect-archive E:\path\to\audit\实际run_id
 
 执行入口在模型／工具派发前、观测后、审批／暂停返回和控制轮询边界保存检查点。控制轮询避免重复写入不变快照；已注册命令制品仍重新核对来源内容。归档过程的耗时计入总运行限额，写完后再次检查派发截止。命令制品按本 Run 注册表核对完整哈希后复制到档案，不扫描旧制品或接受模型指定的来源路径。
 
-归档失败阻止新动作；尚未发出的模型意图释放预留，已经取得的工具结果保留。在途执行需要按原协议收尾，不能把取消请求等同于已停止。最终归档失败不会篡改已达成的 Run 终态，但报告 `audit.status=FAILED`／`AUDIT_WRITE_FAILED` 且 CLI 返回 1，不能宣称完整可追溯。正常结束的归档仍保持内部 Assessment=UNVERIFIED；Evidence／Assessment 判定将在后续切片完成。
+归档失败阻止新动作；尚未发出的模型意图释放预留，已经取得的工具结果保留。在途执行需要按原协议收尾，不能把取消请求等同于已停止。最终归档失败不会篡改已达成的 Run 终态，但报告 `audit.status=FAILED`／`AUDIT_WRITE_FAILED` 且 CLI 返回 1，不能宣称完整可追溯。普通 CLI 未配置独立验收器时，正常结束的 Assessment 仍为 UNVERIFIED；UNKNOWN 为 INCONCLUSIVE。报告的 assessment_details 按条件区分模型声明、工具观测、独立验证及未决事项，具体判定与新鲜度边界见 AUDIT.md。

@@ -1,20 +1,24 @@
-"""Inspectable in-memory report; durable audit is a later plan slice."""
+"""Inspectable original execution report with separately scoped assessment."""
 
 from src.v2.controller import RunController
+from src.v2.evidence import Criterion, Evidence, assess
 from src.v2.model_budget import ModelLedger
 from src.v2.policy import ApprovalStore
 from dataclasses import asdict
 
 
 def run_report(run: RunController, *, model_ledger: ModelLedger | None = None,
-               approvals: ApprovalStore | None = None) -> dict:
+               approvals: ApprovalStore | None = None, criteria: tuple[Criterion, ...] | None = None,
+               validations: tuple[Evidence, ...] = (), current_versions: dict[str, str] | None = None) -> dict:
+    assessment = assess(run, criteria=criteria, validations=validations, current_versions=current_versions)
     return {
         "schema_version": 1,
         "run_id": run.id,
         "task_id": run.task.id,
         "state": run.state.value,
         "reason": run.reason,
-        "assessment": run.assessment,
+        "assessment": assessment["assessment"],
+        "assessment_details": assessment,
         "final_answer": run.final_answer,
         "model_usage": None if model_ledger is None else {
             "charged_tokens": model_ledger.charged_tokens,
