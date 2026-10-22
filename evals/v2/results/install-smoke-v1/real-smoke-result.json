@@ -1,0 +1,21 @@
+{
+  "stage": "real-installed-smoke",
+  "returncode": 0,
+  "state": "COMPLETED",
+  "reason": "FINAL_ANSWER",
+  "audit": "FINALIZED",
+  "assessment": "UNVERIFIED",
+  "model_requests": 2,
+  "charged_tokens": 1257,
+  "actual_models": [
+    "deepseek-flash"
+  ],
+  "requested_model": "deepseek-chat",
+  "elapsed_seconds": 6.239,
+  "checks": {
+    "read_observed": true,
+    "final_fact_present": true,
+    "input_unchanged": false
+  },
+  "run_directory": "E:\\A-project\\YB-agent\\.harness\\phase1-delivery\\0e15fc455ff74570a45eef48676f13cc\\outside\\audit\\dfc20c702d9748fcabf2b80dcd2c5a48"
+}

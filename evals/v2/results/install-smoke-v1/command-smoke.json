@@ -1,0 +1,7 @@
+{
+  "state": "COMPLETED",
+  "exit_code": 0,
+  "tree_stopped": true,
+  "approved_command_observed": true,
+  "source": "E:\\A-project\\YB-agent\\.harness\\phase1-delivery\\0e15fc455ff74570a45eef48676f13cc\\venv\\Lib\\site-packages\\src\\v2\\process.py"
+}

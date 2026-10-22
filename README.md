@@ -4,6 +4,16 @@
 
 核心原则：**机制是代码，不是提示词**。拦截 `rm -rf /` 的是 Python 规则，反馈分类来自确定性解析器，而不是 LLM 的自我评估。
 
+## V2 基础 Agent
+
+V2 通过独立入口 `harness-v2` 提供单进程、多轮模型决策、受控文件／Windows Python 工具、审批、运行控制、有界上下文和本地审计。旧 `harness` 入口继续使用原运行时，两者不会自动切换。
+
+- 从 [V2 安装与独立使用](docs/v2/INSTALL.md) 开始；完整参数、控制和归档见 [使用说明](docs/v2/USAGE.md)。
+- 执行保证和实际回归见 [契约测试映射](docs/v2/CONTRACT_TESTS.md)及[审计与证据格式](docs/v2/AUDIT.md)。
+- 三类真实开发基线已保存；最终固定样本评测与 G1 结论仍以 [第一阶段计划](docs/v2/PHASE1_PLAN.md)和实施记录为准。
+
+当前仅验证所列 Windows 行为，不提供自动崩溃续跑、任意代码 OS 沙箱、长期记忆或 Multi-Agent。下文继续介绍旧版 CLI／REPL／Web demo；不能把旧版能力自动归为 V2 已交付。
+
 ## 架构
 
 ```text
@@ -68,11 +78,11 @@ make demo
 Windows PowerShell 和通用 Python 命令：
 
 ```powershell
-python -m pytest tests/unit tests/demo -q
-python -m ruff check src tests
+python scripts/run_phase1_tests.py tests/unit tests/demo -q
+python -m ruff check src tests scripts
 ```
 
-测试与 demo 默认使用 mock LLM，不依赖网络或真实 LLM。
+测试与 demo 默认使用 mock LLM，不依赖网络或真实 LLM。安全测试入口同时隔离系统 keyring，避免凭据测试读取本机真实值；V2 相关回归使用 `python scripts/run_phase1_tests.py tests/v2 tests/unit tests/demo -q`。
 
 ## 本地 WebUI
 

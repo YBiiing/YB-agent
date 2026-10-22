@@ -1,0 +1,7 @@
+{
+  "source_commit": "5a4891f29e653b768cf30274fc5de7d0ea71e784",
+  "root": "E:\\A-project\\YB-agent\\.harness\\phase1-delivery\\0e15fc455ff74570a45eef48676f13cc",
+  "wheel": "E:\\A-project\\YB-agent\\.harness\\phase1-delivery\\0e15fc455ff74570a45eef48676f13cc\\wheels\\harness-0.1.1-py3-none-any.whl",
+  "created_env": "E:\\A-project\\YB-agent\\.harness\\phase1-delivery\\0e15fc455ff74570a45eef48676f13cc\\venv",
+  "setup_incident": "no-build-isolation first attempt could not import local setuptools.build_meta; isolated build used instead"
+}

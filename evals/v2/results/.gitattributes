@@ -1,2 +1,4 @@
 # Command output evidence is hashed as bytes; never normalize its line endings.
 */artifacts-*/*.txt -text whitespace=cr-at-eol
+install-smoke-v1/run/** -text
+install-smoke-v1/preflight/** -text

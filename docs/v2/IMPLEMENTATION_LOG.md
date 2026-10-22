@@ -263,3 +263,13 @@
 - 全量之后新增一条真实跨模块机制测试：待审批无副作用→批准→Windows 命令产生效果→制品保存失败 COMMAND_ARTIFACT_WRITE_FAILED／UNKNOWN→后续 SKIPPED→最终档案完整而 Assessment INCONCLUSIVE；专项 1 passed。模型只请求一次、命令只启动一次，未掩盖已发生效果。
 - 两位 subagent 分别独立复验相关 54 passed 与专项 1 passed，逐项核对文档 31 个命名函数引用存在。IO 审核建议补强精确错误码，已在内存与档案同时断言并专项复验；最终均确认可提交。全 src／tests／scripts ruff 和 diff 检查通过。
 - P1-10 完成。离线机制回归不代替 P1-12 的真实固定样本评测；本轮真实模型请求零次，继续 P1-11 独立安装与使用交付。
+
+## P1-11：独立 wheel 安装与使用交付
+
+- 契约回归提交：`5a4891f`。补根 README V2 入口、INSTALL.md 的新环境／wheel／离线闭环／显式配置／兼容／退出码与排错说明，USAGE 保留完整控制和工具文档；未发布新版本或推送。
+- 源码 5a4891f 构建 wheel（SHA 4102180f9682196f9d4ecfbbd656ad40538286d0c07bd4894fe3e9a2a2520021），新建不继承 system site 的 Python 3.13.7 venv，实际安装 wheel[proxy] 与全部运行依赖 33 项，pip check 通过。新环境 openai 3.36.1 与主开发环境 2.44.0 不同，具体版本已完整记录，没有升级系统环境或声称所有版本兼容。
+- 从仓库外清除 PYTHONPATH／禁用 user site，实际新旧入口帮助、模块帮助、mock 文件读取／完整归档查询及审批后的 Windows 命令均通过，模块实际来自 site-packages；旧完整 REPL／Web 未逐项验收。
+- 新环境真实合成只读冒烟一次 Run，限两个 Step／两请求、单次输出 1024 tokens、总限额 60 秒、重试 0；实际 2 请求、1257 tokens、6.239 秒，COMPLETED／audit FINALIZED／UNVERIFIED。请求 deepseek-chat、响应 deepseek-flash；标记与调用前后内容 SHA 核对一致。累计真实生成 26 请求、31652 tokens，此冒烟不混入最终能力评测。
+- 首次 no-build-isolation 因未安装 setuptools 后端失败，改默认隔离构建成功；后置断言误用 LF 对照 Windows CRLF，原误判 summary 保留，并以调用前 mock 档案 SHA 纠正，无改输入或重发模型。正式双档案／报告／完整版本见 evals/v2/results/install-smoke-v1，已知凭据及四层转义扫描无泄露；Git 属性保护哈希绑定文件不换行归一化。
+- 两位 subagent 均独立复验新 venv 的 pip check／新旧帮助／python -I 模块帮助、wheel 与档案 SHA／字节、请求用量和范围，均可提交。IO 审核另核对 wheel 内 52 项源码／模板与当前一致。全 ruff 与 diff 检查通过。
+- 临时 venv 的精确路径清理命令被执行层以 blocked by policy 拒绝，未尝试绕过；该目录暂保留在 .harness/phase1-delivery/0e15fc455ff74570a45eef48676f13cc/venv，wheel 与正式证据保留，无本次后台服务。P1-11 完成，继续 P1-12 最终评测；G1 尚未宣告完成。
