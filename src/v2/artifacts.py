@@ -90,21 +90,31 @@ class ArtifactStore:
         return {"artifact_id": record.id, "sha256": record.sha256, "bytes": str(record.size),
                 "truncated": str(record.truncated), "access": "read_artifact"}
 
+    def _verified_bytes(self, record: Artifact) -> bytes:
+        self._validate_path(record.path)
+        info = record.path.stat(follow_symlinks=False)
+        flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        with os.fdopen(os.open(record.path, flags), "rb") as stream:
+            opened = os.fstat(stream.fileno())
+            if (info.st_dev, info.st_ino) != (opened.st_dev, opened.st_ino):
+                raise PolicyDenied("ARTIFACT_CHANGED_BEFORE_OPEN")
+            raw = stream.read(self.MAX_BYTES + 1)
+            after = os.fstat(stream.fileno())
+        if ((opened.st_size, opened.st_mtime_ns) != (after.st_size, after.st_mtime_ns)
+                or len(raw) != record.size or hashlib.sha256(raw).hexdigest() != record.sha256):
+            raise PolicyDenied("ARTIFACT_CONTENT_CHANGED")
+        return raw
+
+    def export(self) -> tuple[tuple[Artifact, bytes], ...]:
+        """Trusted audit export of this Run's registry; never scan old files."""
+        with self._lock:
+            records = tuple(self._records.values())
+        return tuple((record, self._verified_bytes(record)) for record in records)
+
     def read(self, call) -> ToolResult:
         try:
             record, offset, length = self._arguments(call)
-            self._validate_path(record.path)
-            info = record.path.stat(follow_symlinks=False)
-            flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
-            with os.fdopen(os.open(record.path, flags), "rb") as stream:
-                opened = os.fstat(stream.fileno())
-                if (info.st_dev, info.st_ino) != (opened.st_dev, opened.st_ino):
-                    raise PolicyDenied("ARTIFACT_CHANGED_BEFORE_OPEN")
-                raw = stream.read(self.MAX_BYTES + 1)
-                after = os.fstat(stream.fileno())
-            if ((opened.st_size, opened.st_mtime_ns) != (after.st_size, after.st_mtime_ns)
-                    or len(raw) != record.size or hashlib.sha256(raw).hexdigest() != record.sha256):
-                return ToolResult(ResultStatus.FAILED, error="ARTIFACT_CONTENT_CHANGED")
+            raw = self._verified_bytes(record)
             part = raw[offset:offset + length]
             return ToolResult(ResultStatus.SUCCESS, json.dumps({
                 "source": "external_tool_artifact", "artifact_id": record.id, "sha256": record.sha256,
@@ -115,7 +125,8 @@ class ArtifactStore:
                 "encoding": "UTF-8; partial code points at byte page boundaries use replacement",
             }, ensure_ascii=False))
         except PolicyDenied as error:
-            return ToolResult(ResultStatus.DENIED, error=error.code)
+            status = ResultStatus.FAILED if error.code == "ARTIFACT_CONTENT_CHANGED" else ResultStatus.DENIED
+            return ToolResult(status, error=error.code)
         except (OSError, ValueError):
             return ToolResult(ResultStatus.FAILED, error="ARTIFACT_READ_FAILED")
 

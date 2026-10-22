@@ -1,9 +1,12 @@
 """One in-process executor for the read-only vertical slice."""
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from pathlib import Path
 import time
 
+from src.v2.archive import ArchiveArtifact, RunArchive
+from src.v2.report import run_report
 from src.v2.controller import TERMINAL, Control, RunController, RunState, Task
 from src.v2.model import Model, ModelError, ModelInput, ModelResponse
 from src.v2.model_budget import ModelBudgetError, ModelLedger
@@ -48,7 +51,8 @@ class Limits:
 
 class Engine:
     def __init__(self, task: str | Task, model: Model, tools: ReadOnlyTools, *, limits=Limits(),
-                 permissions: PermissionService | None = None, subject="local-user", approval_mode="wait"):
+                 permissions: PermissionService | None = None, subject="local-user", approval_mode="wait",
+                 archive_dir: Path | None = None):
         if approval_mode not in ("wait", "deny"):
             raise ContractError("unknown approval mode")
         self.model = model
@@ -74,6 +78,74 @@ class Engine:
         self._admitted_resources: dict[str, dict[str, str]] = {}
         self._retry_counts: dict[str, int] = {}
         self._retry_at: float | None = None
+        self.archive = None if archive_dir is None else RunArchive(
+            archive_dir, self.controller.id, self.tools.project, sanitize=self.model.sanitize,
+        )
+        self.audit_error: str | None = None
+        self._audit_finalized = False
+        self._audit_snapshot = None
+
+    def export_report(self) -> dict:
+        report = run_report(self.controller, model_ledger=self.model_ledger, approvals=self.permissions.approvals)
+        task = self.controller.task
+        report["task"] = {"id": task.id, "goal": task.goal, "constraints": list(task.constraints), "criteria": list(task.criteria)}
+        decision = self._pending_decision
+        report["pending_decision"] = None if decision is None else {
+            "id": decision.id, "kind": decision.kind.value, "text": decision.text,
+            "calls": [{"id": call.id, "name": call.name, "version": call.version, "arguments": call.arguments}
+                      for call in decision.calls],
+        }
+        report["limits"] = asdict(self.limits)
+        report["audit"] = {
+            "status": "DISABLED" if self.archive is None else (
+                "FAILED" if self.audit_error else "FINALIZED" if self._audit_finalized else "ACTIVE"
+            ),
+            "error": self.audit_error,
+            "directory": None if self.archive is None else str(self.archive.root),
+            "window": "A persisted admission/intent may already have dispatched after the snapshot. Never infer safe replay.",
+        }
+        report["model_recordings"] = {
+            "prepared_requests": list(getattr(self.model, "recorded_requests", ())),
+            "received_replies": list(getattr(self.model, "recorded_replies", ())),
+        }
+        return report
+
+    def audit_checkpoint(self) -> bool:
+        if self.archive is None or self._audit_finalized:
+            return True
+        if self.audit_error:
+            return False
+        try:
+            report = self.export_report()
+            final = self.controller.state in TERMINAL and self.controller.active_permit is None
+            if final:
+                report["audit"]["status"] = "FINALIZED"
+            store = getattr(self.tools, "artifacts", None)
+            artifacts = () if store is None else tuple(
+                ArchiveArtifact(record.id, raw.decode("utf-8"), record.sha256, record.truncated)
+                for record, raw in store.export()
+            )
+            # Avoid replacing unchanged snapshots during idle control polling.
+            # Still verify registered artifact contents above on each checkpoint.
+            snapshot = self.model.sanitize(report)
+            if snapshot == self._audit_snapshot:
+                return True
+            self.archive.checkpoint(snapshot, artifacts=artifacts, final=final)
+            self._audit_snapshot = snapshot
+            self._audit_finalized = final
+            return True
+        except Exception:
+            # Audit adapters and I/O must not escape the fail-closed boundary.
+            self.audit_error = "AUDIT_WRITE_FAILED"
+            return False
+
+    def observe_audit(self) -> None:
+        """At control/return boundaries, settle active work before terminalizing."""
+        if not self.audit_checkpoint():
+            if self.controller.active_permit is not None:
+                self.controller.request_cancel()
+            else:
+                self._stop(RunState.FAILED, "AUDIT_WRITE_FAILED")
 
     def _authorization(self, call, *, admitting=False) -> Authorization:
         run = self.controller
@@ -186,6 +258,8 @@ class Engine:
             raise ContractError("run already has an executor")
         self._executing = True
         try:
+            self.check_deadline()
+            self.observe_audit()
             try:
                 return await self._execute()
             except ContractError:
@@ -196,6 +270,7 @@ class Engine:
                 raise
         finally:
             self._executing = False
+            self.observe_audit()
 
     async def _execute(self) -> RunController:
         run = self.controller
@@ -241,6 +316,11 @@ class Engine:
                     except ContractError:
                         self.model_ledger.abandon(intent.id, "ADMISSION_BLOCKED")
                         raise
+                    if not self.audit_checkpoint():
+                        self.model_ledger.abandon(intent.id, "AUDIT_WRITE_FAILED")
+                        run.finish_model(permit, ResultStatus.FAILED)
+                        self._stop(RunState.FAILED, "AUDIT_WRITE_FAILED")
+                        break
                     if run.control is not Control.NONE or self._time_left() <= 0:
                         reason = "CONTROL_BEFORE_SEND" if run.control is not Control.NONE else "RUN_TIME_LIMIT"
                         self.model_ledger.abandon(intent.id, reason)
@@ -270,6 +350,9 @@ class Engine:
                             finish_reason=getattr(error, "finish_reason", None),
                         )
                         run.finish_model(permit, ResultStatus.FAILED)
+                        self.observe_audit()
+                        if self.audit_error:
+                            break
                         if self._time_left() <= 0:
                             self._stop(RunState.EXHAUSTED, "RUN_TIME_LIMIT")
                         elif self.model_ledger.charged_tokens > self.limits.max_total_tokens or (
@@ -297,6 +380,8 @@ class Engine:
                         self._stop(RunState.EXHAUSTED, "MODEL_TOKEN_LIMIT")
                         break
                     self._pending_decision = response.decision
+                    self.observe_audit()
+                    self.check_deadline()
                     if run.state is not RunState.RUNNING:
                         break
                 try:
@@ -341,6 +426,16 @@ class Engine:
                         else:
                             self._apply_authorization(call, latest)
                     continue
+                if not self.audit_checkpoint():
+                    self._admitted_resources.pop(call.id, None)
+                    run.finish_tool(permit, ToolResult(ResultStatus.SKIPPED, error="AUDIT_WRITE_FAILED"))
+                    self._stop(RunState.FAILED, "AUDIT_WRITE_FAILED")
+                    break
+                if self._time_left() <= 0 or run.control is Control.CANCEL:
+                    self._admitted_resources.pop(call.id, None)
+                    run.finish_tool(permit, ToolResult(ResultStatus.SKIPPED, error="CONTROL_OR_TIME_BEFORE_TOOL"))
+                    self.check_deadline()
+                    break
                 self.tool_calls += 1
                 try:
                     result = await self.tools.execute_async(
@@ -365,6 +460,9 @@ class Engine:
                     result = ToolResult(ResultStatus.UNKNOWN if effect else ResultStatus.FAILED,
                                         error="TOOL_INTERNAL_ERROR_UNKNOWN" if effect else "READ_INTERNAL_ERROR")
                 run.finish_tool(permit, result)
+                self.observe_audit()
+                if self.audit_error:
+                    break
                 if result.error == "READ_TIMEOUT":
                     # A timed-out thread may still be reading. Do not dispatch more work.
                     if self._time_left() <= 0:

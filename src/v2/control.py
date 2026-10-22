@@ -195,6 +195,7 @@ async def supervise(engine: Engine, inbox: ControlInbox, *, approvals=False,
                     # Losing a requested control channel stops dispatch, but an
                     # active attempt still settles through its usual protocol.
                     run.request_cancel()
+            engine.observe_audit()
             if active is not None and active.done():
                 await active  # Do not hide executor contract errors.
                 active = None

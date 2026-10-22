@@ -102,3 +102,21 @@ harness-v2 --project E:\path\to\trusted-synthetic-project --task "先运行 chec
 开发基线使用 `python scripts/run_v2_action_baseline.py --config E:\path\to\config.yaml --model deepseek-chat --category repair --runs 2`，检查类改为 `--category inspect`。每批最多 2 Run／12 模型请求，按已有每 Run 限额执行；只运行冻结的开发合成样本，最终样本不接受选择。该驱动自动批准的动作有额外样本边界，细节见 `evals/v2/SPEC.md`，不能作为通用项目的自动批准配置。归档位于 `.harness/phase1-evals/<唯一批次>`，包含全部请求、响应、输出和独立检查；正式真实结果会另行版本化。
 
 协议依据：[DeepSeek 工具调用](https://api-docs.deepseek.com/guides/tool_calls/)、[Chat Completions API](https://api-docs.deepseek.com/api/create-chat-completion/)。适配器使用非思考模式，保存原 assistant 工具调用信息，并按调用 ID 回传完整观测；不依赖 Beta strict 模式。
+
+
+## 本地归档与只读查询
+
+显式 `--archive-dir` 启用审计，参数为已经存在的项目外可信目录。每次 Run 创建新的 ID 子目录，不复用旧 Run；未指定时报告 `audit.status=DISABLED`，只有本次 stdout 报告，不声称已持久化。
+
+```powershell
+harness-v2 --project E:\path\to\project --task "读取 README" --model mock --archive-dir E:\path\to\audit
+harness-v2 --inspect-archive E:\path\to\audit\实际run_id
+```
+
+查询入口仅接受 `--inspect-archive` 和路径，无需模型、配置或凭据，不读取项目、不执行工具，不恢复旧任务。完整性校验通过返回 0，不完整返回 1；不能与执行选项组合。可查询完整报告、事件及制品摘要，完整命令输出保存在该 Run 的 `artifact-<id>.txt`。格式、大小边界及异常记录语义见 [AUDIT.md](AUDIT.md)。
+
+归档包含任务与限额、原始观测、审批和计费记录、缓存的有效决策，以及已准备的供应商请求／已收到的响应（已知凭据脱敏）。请求准备记录不等于实际发送；以模型账单中的尝试阶段和运行记录共同检查。派发前保存意图／许可，但快照完成之后动作可能已经开始，重启时不能根据 PREPARED 推断可以安全重发。
+
+执行入口在模型／工具派发前、观测后、审批／暂停返回和控制轮询边界保存检查点。控制轮询避免重复写入不变快照；已注册命令制品仍重新核对来源内容。归档过程的耗时计入总运行限额，写完后再次检查派发截止。命令制品按本 Run 注册表核对完整哈希后复制到档案，不扫描旧制品或接受模型指定的来源路径。
+
+归档失败阻止新动作；尚未发出的模型意图释放预留，已经取得的工具结果保留。在途执行需要按原协议收尾，不能把取消请求等同于已停止。最终归档失败不会篡改已达成的 Run 终态，但报告 `audit.status=FAILED`／`AUDIT_WRITE_FAILED` 且 CLI 返回 1，不能宣称完整可追溯。正常结束的归档仍保持内部 Assessment=UNVERIFIED；Evidence／Assessment 判定将在后续切片完成。

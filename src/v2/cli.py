@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 
 from src.cli.console import configure_console_io
+from src.v2.archive import ArchiveError, read_archive
 from src.v2.controller import TERMINAL, RunState
 from src.v2.control import ControlFileError, ControlInbox, supervise
 from src.v2.command_tools import CommandTools
@@ -15,14 +16,16 @@ from src.v2.engine import Engine, Limits
 from src.v2.model import ModelError, ScriptedModel
 from src.v2.operator_input import OperatorInput, OperatorInputError, read_reply
 from src.v2.protocol import ContractError, Decision, ResultStatus, ToolCall
-from src.v2.report import run_report
 from src.v2.tools import ReadOnlyTools
 from src.v2.workspace_tools import WorkspaceTools
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="YB-agent V2")
-    parser.add_argument("--task", required=True, help="task to execute")
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--task", help="task to execute")
+    mode.add_argument("--inspect-archive", type=Path, help="read an existing Run archive; never execute or resume")
+    parser.add_argument("--archive-dir", type=Path, help="enable audit in an existing directory outside project")
     parser.add_argument("--project", type=Path, default=Path.cwd(), help="project directory")
     parser.add_argument("--model", help="explicit model selection; no legacy configuration fallback")
     parser.add_argument("--config", type=Path, help="explicit DeepSeek configuration file")
@@ -127,13 +130,22 @@ async def execute_and_close(engine: Engine, *, interactive=False, inbox=None, co
         engine.controller.request_cancel()
         raise
     finally:
+        engine.observe_audit()
         await engine.model.close()
 
 
 def main(argv: list[str] | None = None) -> int:
     configure_console_io()
     parser = build_parser()
-    arguments = parser.parse_args(argv)
+    raw_arguments = list(sys.argv[1:] if argv is None else argv)
+    arguments = parser.parse_args(raw_arguments)
+    if arguments.inspect_archive is not None:
+        if not (len(raw_arguments) == 2 and raw_arguments[0] == "--inspect-archive" or
+                len(raw_arguments) == 1 and raw_arguments[0].startswith("--inspect-archive=")):
+            parser.error("--inspect-archive accepts no execution options")
+        result = read_archive(arguments.inspect_archive)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result["integrity"] == "VERIFIED" else 1
     if not arguments.task.strip():
         parser.error("task must not be blank")
     if not arguments.project.is_dir():
@@ -178,24 +190,27 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(error.code)
     if isinstance(tools, CommandTools):
         tools.redact = model.redact
-    engine = Engine(
-        arguments.task, model, tools,
-        limits=Limits(max_steps=arguments.max_steps, run_seconds=arguments.run_seconds,
-                      max_model_retries=arguments.model_retries, approval_seconds=arguments.approval_seconds,
-                      pause_seconds=arguments.pause_seconds),
-        approval_mode="wait" if arguments.approvals in ("interactive", "control-file") else "deny",
-    )
+    try:
+        engine = Engine(
+            arguments.task, model, tools,
+            limits=Limits(max_steps=arguments.max_steps, run_seconds=arguments.run_seconds,
+                          max_model_retries=arguments.model_retries, approval_seconds=arguments.approval_seconds,
+                          pause_seconds=arguments.pause_seconds),
+            archive_dir=arguments.archive_dir,
+            approval_mode="wait" if arguments.approvals in ("interactive", "control-file") else "deny",
+        )
+    except ArchiveError as error:
+        asyncio.run(model.close())
+        parser.error(str(error))
     if arguments.start_paused:
         engine.controller.request_pause()
     run = asyncio.run(execute_and_close(
         engine, interactive=arguments.approvals == "interactive", inbox=inbox,
         control_approvals=arguments.approvals == "control-file",
     ))
-    report = model.sanitize(run_report(
-        run, model_ledger=engine.model_ledger, approvals=engine.permissions.approvals,
-    ))
+    report = model.sanitize(engine.export_report())
     print(json.dumps(report, ensure_ascii=False, indent=2))
-    return 0 if run.state is RunState.COMPLETED else 1
+    return 0 if run.state is RunState.COMPLETED and engine.audit_error is None else 1
 
 
 if __name__ == "__main__":
