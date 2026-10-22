@@ -273,3 +273,12 @@
 - 首次 no-build-isolation 因未安装 setuptools 后端失败，改默认隔离构建成功；后置断言误用 LF 对照 Windows CRLF，原误判 summary 保留，并以调用前 mock 档案 SHA 纠正，无改输入或重发模型。正式双档案／报告／完整版本见 evals/v2/results/install-smoke-v1，已知凭据及四层转义扫描无泄露；Git 属性保护哈希绑定文件不换行归一化。
 - 两位 subagent 均独立复验新 venv 的 pip check／新旧帮助／python -I 模块帮助、wheel 与档案 SHA／字节、请求用量和范围，均可提交。IO 审核另核对 wheel 内 52 项源码／模板与当前一致。全 ruff 与 diff 检查通过。
 - 临时 venv 的精确路径清理命令被执行层以 blocked by policy 拒绝，未尝试绕过；该目录暂保留在 .harness/phase1-delivery/0e15fc455ff74570a45eef48676f13cc/venv，wheel 与正式证据保留，无本次后台服务。P1-11 完成，继续 P1-12 最终评测；G1 尚未宣告完成。
+
+## P1-12a：最终样本驱动、判据与配置冻结
+
+- 独立使用提交：`8804865`。新增 final-v1.json 与 run_v2_final.py：三类各连续两次、每类必须 2/2，保持原任务清单／预算／模型设置。每类最多 12 请求、整套最多 36；提交前工作区有改动不得启动，同一 suite 绑定源代码／脚本／协议／HEAD／所列关键依赖版本，已尝试类别不可覆盖。
+- 显式 final=True 扩展 action 验收与 trial helper，开发入口默认仍不运行 final。修复执行限制为 UTF-8 原始字节 AST 的有限纯字符串语言；检查类在首次真实执行前固定带 value／limit 的 JSON 约束，独立推导对象／次数／上限／代码，不向模型提供答案。final 接入审计，审计失败不得判通过；中断仍保留请求数及保守未知费用。
+- IO 审核发现清单 SHA 会受 Git 换行设置影响。新增 evals/v2/.gitattributes 保留 tasks.json 和 final 协议物理字节，清单仍为所有开发基线已使用的 9c41f4...，解析内容完全不变；暂存 blob 和 core.autocrlf=true／false 两种过滤结果逐字一致。仅将 CR 识别为合法行尾，其他 whitespace 检查保持。
+- 最终驱动专项 25 passed，包含静态 guard 拒绝、锁／两次／失败保留、异常费用、未提交零启动、审计失败及改值合成 fixture 的真实工具验收；未执行实际冻结 final 检查或真实最终模型。相关组合 66 passed，全 ruff／diff 检查通过。
+- 首轮全量 620 passed、1 failed、2 skipped、1 条既有警告，唯一失败为 P1-11 README 遗漏旧 pytest 命令说明；补兼容与凭据隔离说明，旧测试原样保留，专项 4 passed。随后完整 V2／旧 unit／demo 621 passed、2 skipped、1 条既有 Starlette 弃用警告，109.01 秒。
+- 两位 subagent 独立审查代码、冻结文档和字节修复，最终各复验 25 passed，另对 README 修补各复验 4 passed，均可提交。本小目标真实模型请求为零，最终 suite 目录尚不存在，P1-12／G1 尚未完成。

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "evaluation_version": "phase1-final-v1",
+  "dataset_version": 1,
+  "manifest_sha256": "9c41f4f372b1a23cc5aaf1e176a1bbf0a14e7d8f425f52cc525bcc7fa1f3ee9a",
+  "repetitions": 2,
+  "categories": {
+    "read": {
+      "sample_id": "read-final-01",
+      "required_successes": 2
+    },
+    "repair": {
+      "sample_id": "repair-final-01",
+      "required_successes": 2
+    },
+    "inspect": {
+      "sample_id": "inspect-final-01",
+      "required_successes": 2
+    }
+  },
+  "settings": {
+    "model": "deepseek-chat",
+    "base_url": "https://api.deepseek.com/v1",
+    "format": "native"
+  },
+  "limits": {
+    "max_steps": 6,
+    "max_model_requests": 6,
+    "max_tool_calls": 12,
+    "run_seconds": 180,
+    "model_seconds": 45,
+    "tool_seconds": 5,
+    "max_input_bytes": 16384,
+    "max_output_tokens": 1024,
+    "max_total_tokens": 131072,
+    "max_model_retries": 0,
+    "retry_seconds": 0.25,
+    "approval_seconds": 60,
+    "pause_seconds": 60
+  },
+  "batch_max_model_requests": 12,
+  "suite_max_model_requests": 36,
+  "inspection_output_contract": "inspection-retries-json-v1",
+  "inspection_output_contract_sha256": "79b48ab536e99b71f0de57727a55eccbe108fc660abcb7f592da98f8cdf67824",
+  "repair_execution_guard": "bounded-string-ast-v1",
+  "frozen_before_first_real_final_run": true
+}

@@ -1,6 +1,6 @@
-"""Independent checks for the frozen repair/inspection DEVELOPMENT fixtures.
+"""Independent checks for frozen action fixtures with explicit split selection.
 
-Final samples are deliberately excluded until the final evaluation milestone.
+Development entry points cannot implicitly enable final evaluation.
 The narrow AST guard is a fixture-specific execution precondition, not a
 general Python sandbox; rejected model implementations remain failed attempts.
 """
@@ -30,6 +30,75 @@ INSPECT_OUTPUT_CONTRACT = (
 )
 
 
+INSPECT_FINAL_OUTPUT_CONTRACT = (
+    '最终答案仅输出 JSON 对象，不使用 Markdown 或额外文字。准确键为 check_exit_code（整数）、'
+    'verdict（issues_found 或 passed）、findings（数组）。每个 finding 仅含 code（实际检查问题代码）、'
+    'subjects（受影响作业名称字符串数组）、value（实际重试次数，整数）、limit（文档规定上限，整数）。'
+    '无问题时 findings 为空。字段必须对应实际文件和执行观测，不混入相反声明。'
+)
+
+
+def _supported(sample, final):
+    if type(final) is not bool:
+        return False
+    split = "final" if final else "development"
+    suffix = "final" if final else "dev"
+    return sample.get("split") == split and sample.get("id") in (f"repair-{suffix}-01", f"inspect-{suffix}-01")
+
+
+def final_task(sample):
+    if not _supported(sample, True):
+        raise ValueError("only frozen final action fixtures may run")
+    return Task(sample["task"], constraints=(INSPECT_FINAL_OUTPUT_CONTRACT,) if sample["category"] == "inspect" else ())
+
+
+def _label_expression(node, names, depth=0):
+    # A finite, statically typed string-only expression language. No Python eval.
+    if depth > 24:
+        return None
+    if isinstance(node, ast.Name):
+        return names.get(node.id)
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, str) and len(node.value) <= 256:
+            return "str"
+        if type(node.value) is int and 0 <= node.value <= 1024:
+            return "int"
+        return None
+    if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute) or node.keywords:
+        return None
+    receiver = _label_expression(node.func.value, names, depth + 1)
+    if receiver != "str":
+        return None
+    arguments = [_label_expression(item, names, depth + 1) for item in node.args]
+    method = node.func.attr
+    if method in ("lower", "upper") and not arguments:
+        return "str"
+    if method == "strip" and arguments in ([], ["str"]):
+        return "str"
+    if method == "replace" and arguments in (["str", "str"], ["str", "str", "int"]):
+        return "str"
+    if method == "split" and arguments in ([], ["str"], ["str", "int"]):
+        return "str-list"
+    if method == "join" and arguments == ["str-list"]:
+        return "str"
+    return None
+
+
+def _safe_label_statements(statements):
+    if not 1 <= len(statements) <= 9 or not isinstance(statements[-1], ast.Return):
+        return False
+    names = {"text": "str"}
+    for statement in statements[:-1]:
+        if (not isinstance(statement, ast.Assign) or len(statement.targets) != 1
+                or not isinstance(statement.targets[0], ast.Name)):
+            return False
+        kind = _label_expression(statement.value, names)
+        if kind not in ("str", "str-list"):
+            return False
+        names[statement.targets[0].id] = kind
+    return _label_expression(statements[-1].value, names) == "str"
+
+
 def development_task(sample):
     return Task(sample["task"], constraints=(INSPECT_OUTPUT_CONTRACT,) if sample["category"] == "inspect" else ())
 
@@ -54,28 +123,44 @@ def inspection_conclusion_matches(sample, answer):
             return False
         if value["verdict"] != "issues_found" or not isinstance(value["findings"], list):
             return False
-        ports = json.loads(sample["files"]["services.json"])
-        expected = sorted((port, tuple(sorted(name for name, item in ports.items() if item == port)))
-                          for port in set(ports.values()) if list(ports.values()).count(port) > 1)
+        final = sample.get("id") == "inspect-final-01" and sample.get("split") == "final"
+        if final:
+            # The cap is part of the frozen README/check contract, never model text.
+            limits = json.loads(sample["files"]["limits.json"])
+            cap_match = re.fullmatch(r"Every job may retry at most ([0-9]+) times\. Run check\.py to validate limits\.json\.\n", sample["files"]["README.md"])
+            if cap_match is None:
+                return False
+            cap = int(cap_match.group(1))
+            expected = sorted((count, (job,), cap) for job, count in limits.items() if type(count) is int and count > cap)
+        else:
+            ports = json.loads(sample["files"]["services.json"])
+            expected = sorted((port, tuple(sorted(name for name, item in ports.items() if item == port)))
+                              for port in set(ports.values()) if list(ports.values()).count(port) > 1)
         actual = []
         for finding in value["findings"]:
-            if not isinstance(finding, dict) or set(finding) != {"code", "subjects", "value"}:
+            keys = {"code", "subjects", "value", "limit"} if final else {"code", "subjects", "value"}
+            if not isinstance(finding, dict) or set(finding) != keys:
                 return False
-            if finding["code"] != "PORT_CONFLICT" or type(finding["value"]) is not int:
+            if finding["code"] != ("RETRY_LIMIT_EXCEEDED" if final else "PORT_CONFLICT") or type(finding["value"]) is not int:
                 return False
             subjects = finding["subjects"]
             if (not isinstance(subjects, list) or not all(isinstance(item, str) for item in subjects)
                     or len(subjects) != len(set(subjects))):
                 return False
-            actual.append((finding["value"], tuple(sorted(subjects))))
+            if final:
+                if type(finding["limit"]) is not int:
+                    return False
+                actual.append((finding["value"], tuple(sorted(subjects)), finding["limit"]))
+            else:
+                actual.append((finding["value"], tuple(sorted(subjects))))
         return sorted(actual) == expected
     except (ValueError, KeyError, TypeError):
         return False
 
 
-def fixture_execution_safe(sample, project):
+def fixture_execution_safe(sample, project, *, final=False):
     try:
-        if sample["id"] not in ("repair-dev-01", "inspect-dev-01") or sample["split"] != "development":
+        if not _supported(sample, final):
             return False
         check = sample["check"]
         if (project / check).read_bytes() != sample["files"][check].encode("utf-8"):
@@ -83,7 +168,7 @@ def fixture_execution_safe(sample, project):
         if sample["category"] == "inspect":
             return all((project / name).read_bytes() == content.encode("utf-8")
                        for name, content in sample["files"].items())
-        source = (project / "calculator.py").read_bytes()
+        source = (project / ("labels.py" if final else "calculator.py")).read_bytes()
         encoding, _ = tokenize.detect_encoding(io.BytesIO(source).readline)
         if codecs.lookup(encoding).name not in ("utf-8", "utf-8-sig"):
             return False
@@ -101,16 +186,18 @@ def fixture_execution_safe(sample, project):
         if len(body) != 1 or not isinstance(body[0], ast.FunctionDef):
             return False
         function = body[0]
-        if (function.name != "add" or function.decorator_list or function.returns or function.type_comment
+        if (function.name != ("normalize_label" if final else "add") or function.decorator_list or function.returns or function.type_comment
                 or getattr(function, "type_params", ())):
             return False
         arguments = function.args
         if (arguments.posonlyargs or arguments.kwonlyargs or arguments.vararg or arguments.kwarg
                 or arguments.defaults or arguments.kw_defaults
-                or [arg.arg for arg in arguments.args] != ["a", "b"]
+                or [arg.arg for arg in arguments.args] != (["text"] if final else ["a", "b"])
                 or any(arg.annotation for arg in arguments.args)):
             return False
         statements = without_docstring(function.body)
+        if final:
+            return _safe_label_statements(statements)
         if len(statements) != 1 or not isinstance(statements[0], ast.Return):
             return False
         expression = statements[0].value
@@ -123,10 +210,10 @@ def fixture_execution_safe(sample, project):
         return False
 
 
-def fixture_permissions(sample, project):
+def fixture_permissions(sample, project, *, final=False):
     """Keep normal ASK approvals, adding non-overridable fixture boundaries."""
-    if sample["id"] not in ("repair-dev-01", "inspect-dev-01") or sample["split"] != "development":
-        raise ValueError("only frozen action development fixtures may run")
+    if not _supported(sample, final):
+        raise ValueError("explicitly select the frozen action fixture split")
 
     def boundary(action):
         call = action.call
@@ -136,10 +223,10 @@ def fixture_permissions(sample, project):
         elif call.name == "write_file":
             allowed = call.arguments.get("path") in sample["allowed_changes"]
         elif call.name == "run_command":
-            allowed = call.arguments == {"program": "python", "args": [sample["check"]]} and fixture_execution_safe(sample, project)
+            allowed = call.arguments == {"program": "python", "args": [sample["check"]]} and fixture_execution_safe(sample, project, final=final)
         return Verdict(Effect.ALLOW) if allowed else Verdict(Effect.DENY, ("FROZEN_FIXTURE_SCOPE_DENIED",))
 
-    return PermissionService(PolicySet("action-development-fixture-v1", (basic_tool_policy, boundary)))
+    return PermissionService(PolicySet("action-final-fixture-v1" if final else "action-development-fixture-v1", (basic_tool_policy, boundary)))
 
 
 def _artifact_text(data, artifact_dir):
@@ -155,9 +242,9 @@ def _artifact_text(data, artifact_dir):
     return raw.decode("utf-8")
 
 
-def assess_action(sample, project, run, before, artifact_dir):
-    if sample["id"] not in ("repair-dev-01", "inspect-dev-01") or sample["split"] != "development":
-        raise ValueError("only frozen development action samples are supported")
+def assess_action(sample, project, run, before, artifact_dir, *, final=False):
+    if not _supported(sample, final):
+        raise ValueError("explicitly select the frozen action fixture split")
     expected = {name: hashlib.sha256(text.encode("utf-8")).hexdigest()
                 for name, text in sample["files"].items()}
     after = file_hashes(project)
@@ -205,7 +292,7 @@ def assess_action(sample, project, run, before, artifact_dir):
                     writes.append({"position": position, **data})
             except (ValueError, KeyError, TypeError, OSError):
                 invalid_evidence = True
-    safe = fixture_execution_safe(sample, project)
+    safe = fixture_execution_safe(sample, project, final=final)
     expected_exit = sample.get("expected_exit", 0)
     marker = sample.get("success_marker")
     current_checks = [item for item in commands if item["inputs"] == after
@@ -255,5 +342,5 @@ def assess_action(sample, project, run, before, artifact_dir):
         "assessment": "PASSED" if all(checks.values()) else "FAILED", "checks": checks,
         "before": before, "after": after, "changed": sorted(changed), "commands": commands,
         "independent_check": verification,
-        "scope": "frozen development fixture; guarded check, exact hashes/order/exit/markers, structured inspection conclusion; not general semantic verification",
+        "scope": "frozen " + ("final" if final else "development") + " fixture; guarded check, exact hashes/order/exit/markers, structured inspection conclusion; not general semantic verification",
     }

@@ -54,3 +54,25 @@
 | 受约束多步检查 | 开发基线 2/2；最终至少 2/2（100%），必需机制全部通过。理由与证据见 results/inspect-baseline-v1/REPORT.md | 2026-10-21，P1-06 同类基线后、最终样本执行前 |
 
 门槛至少包含最终两次中的最低成功次数和比率，并有同类真实成功案例要求。三个数值未冻结则 P1-06/P1-12/G1 不能通过。不能看到最终结果后降低门槛。Windows 是当前实际运行环境；Linux 未验证，不据此宣称跨平台行为已经通过。
+
+## P1-12 最终执行协议（首次真实最终执行前冻结）
+
+`final-v1.json` 固定 evaluation_version=phase1-final-v1、原 dataset_version=1 及清单 SHA、模型配置、完整 Limits、三类各 2 Run／每类必须 2/2。每批最多 12 请求、整套最多 36 请求，单次最多 1024 输出 tokens，模型重试 0。清单与样本内容、原 task、facts、重复次数和分类门槛没有修改。
+
+清单实际开发基线均使用 SHA `9c41f4f372b1a23cc5aaf1e176a1bbf0a14e7d8f425f52cc525bcc7fa1f3ee9a` 的 CRLF JSON 文件；Git 旧属性可能将它在其他环境检出为 LF。为保持已冻结字节，`evals/v2/.gitattributes` 对 tasks.json 和 final-v*.json 禁止行尾归一化。此为容器 JSON 字节策略，内部 files 字符串及展开的 UTF-8 文件内容不变；不能临时忽略摘要差异或改 hash 绕过校验。
+
+最终入口：
+
+```powershell
+python scripts/run_v2_final.py --config E:\path\to\config.yaml --category read
+python scripts/run_v2_final.py --config E:\path\to\config.yaml --category repair
+python scripts/run_v2_final.py --config E:\path\to\config.yaml --category inspect
+```
+
+每次固定连续两次，不接受 --runs 或提高额度的参数。执行前要求工作区已提交；同一个 suite 绑定 Git HEAD、全部 V2／评测脚本摘要、协议、模型设置和关键运行依赖版本，跨类别配置变化拒绝混用。输出为 `.harness/phase1-final-evals/phase1-final-v1/<category>`；类别目录已存在时拒绝覆盖／补跑，即使先前失败也保留。能力失败继续记录第二次；环境、归档或协作中断保留已开始尝试与请求／未知费用，不将未完成类别计为通过。最终失败若导致实现或配置修订，应创建新评测版本并重新执行全部最终类别，旧结果保留，不能降低 2/2 门槛。
+
+read-final-01 保持原任务及事实／来源／全文件不变判据。repair-final-01 的 check.py 字节不变；labels.py 只允许 normalize_label(text)、可选文档字符串、最多八条局部赋值及一个 return。表达式仅包含输入／局部内建字符串、有限字符串／整数常量、strip／upper／lower／replace／split／join 的有限静态类型调用；没有导入、任意函数、反射、循环或推导式。该语言允许安全但错误的实现，由实际检查判定正确性；不是答案白名单或 OS 沙箱，其他正确但范围外的实现仍可能被拒绝并记为失败。
+
+inspect-final-01 在首次真实执行前固定 `inspection-retries-json-v1`：最终只输出 check_exit_code、verdict、findings，每项 finding 只含 code、subjects、value（实际次数）、limit（文档上限）。字段含义由 Task.constraints 提供，不提供 beta／5／3 等答案；验收器从冻结 README／limits.json 独立推导，逐项核对计数、上限、对象、问题代码和非零退出，拒绝重复键／附加文字／矛盾 passed。它没有复用开发样本的端口冲突判据。
+
+final 模式显式接入本地审计，派发及观测遵循同一 Engine 规则；审计失败不能得到独立 PASSED。action 仍需读全文件、取得可靠当前检查、遵守修改范围与顺序，并在正常且无 UNKNOWN 后执行外部独立复验。运行审计保存内部 UNVERIFIED；具体独立结论保存在每次 run-XX.json 的 independent_assessment，不能把两者混为一谈。原开发入口仍只选择 development，不自动开启 final。

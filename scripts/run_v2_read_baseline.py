@@ -31,8 +31,13 @@ def save(path, value):
         json.dump(value, stream, ensure_ascii=False, indent=2)
 
 
-async def execute_trial(sample, project, model, limits, index, output):
-    engine = Engine(sample["task"], model, ReadOnlyTools(project), limits=limits)
+async def execute_trial(sample, project, model, limits, index, output, *, final=False):
+    audit_options = {}
+    if final:
+        audit = output / "audit"
+        audit.mkdir(exist_ok=True)
+        audit_options["archive_dir"] = audit
+    engine = Engine(sample["task"], model, ReadOnlyTools(project), limits=limits, **audit_options)
     before = file_hashes(project)
     started = time.monotonic()
     primary_error = None
@@ -52,13 +57,17 @@ async def execute_trial(sample, project, model, limits, index, output):
     # Archive while the workspace still exists, including cooperative interruption.
     run = engine.controller
     try:
-        assessment = assess_read(sample, project, run, before)
+        if final and engine.audit_error:
+            assessment = {"assessment": "FAILED", "error": "AUDIT_WRITE_FAILED"}
+            errors.append("AUDIT_WRITE_FAILED")
+        else:
+            assessment = assess_read(sample, project, run, before)
     except Exception:
         assessment = {"assessment": "FAILED", "error": "ASSESSMENT_ERROR"}
         errors.append("ASSESSMENT_ERROR")
     result = {
         "trial": index, "elapsed_seconds": round(time.monotonic() - started, 3),
-        "run": run_report(run, model_ledger=engine.model_ledger, approvals=engine.permissions.approvals),
+        "run": engine.export_report() if final else run_report(run, model_ledger=engine.model_ledger, approvals=engine.permissions.approvals),
         "independent_assessment": assessment, "trial_errors": errors,
         "model_requests": engine.model_requests, "tool_calls": engine.tool_calls,
     }

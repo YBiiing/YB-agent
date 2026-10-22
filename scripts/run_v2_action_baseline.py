@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scripts.run_v2_read_baseline import save  # noqa: E402
-from src.v2.action_evaluation import assess_action, development_task, fixture_permissions  # noqa: E402
+from src.v2.action_evaluation import assess_action, development_task, final_task, fixture_permissions  # noqa: E402
 from src.v2.command_tools import CommandTools  # noqa: E402
 from src.v2.controller import RunState  # noqa: E402
 from src.v2.deepseek import DeepSeekModel, DeepSeekSettings  # noqa: E402
@@ -29,10 +29,15 @@ from src.v2.model import ModelError  # noqa: E402
 from src.v2.report import run_report  # noqa: E402
 
 
-async def execute_trial(sample, project, model, tools, limits, index, output):
+async def execute_trial(sample, project, model, tools, limits, index, output, *, final=False):
     tools.redact = model.redact
-    engine = Engine(development_task(sample), model, tools, limits=limits,
-                    permissions=fixture_permissions(sample, project))
+    audit_options = {}
+    if final:
+        audit = output / "audit"
+        audit.mkdir(exist_ok=True)
+        audit_options["archive_dir"] = audit
+    engine = Engine(final_task(sample) if final else development_task(sample), model, tools, limits=limits,
+                    permissions=fixture_permissions(sample, project, final=final), **audit_options)
     before = file_hashes(project)
     started = time.monotonic()
     primary_error, errors = None, []
@@ -60,7 +65,11 @@ async def execute_trial(sample, project, model, tools, limits, index, output):
             errors.append("MODEL_CLOSE_ERROR")
     run = engine.controller
     try:
-        assessment = assess_action(sample, project, run, before, tools.artifact_dir)
+        if final and engine.audit_error:
+            assessment = {"assessment": "FAILED", "error": "AUDIT_WRITE_FAILED"}
+            errors.append("AUDIT_WRITE_FAILED")
+        else:
+            assessment = assess_action(sample, project, run, before, tools.artifact_dir, **({"final": True} if final else {}))
     except Exception:
         assessment = {"assessment": "FAILED", "error": "ASSESSMENT_ERROR"}
         errors.append("ASSESSMENT_ERROR")
@@ -72,7 +81,7 @@ async def execute_trial(sample, project, model, tools, limits, index, output):
             errors.append("FINAL_FILE_CAPTURE_ERROR")
     result = {
         "trial": index, "elapsed_seconds": round(time.monotonic() - started, 3),
-        "run": run_report(run, model_ledger=engine.model_ledger, approvals=engine.permissions.approvals),
+        "run": engine.export_report() if final else run_report(run, model_ledger=engine.model_ledger, approvals=engine.permissions.approvals),
         "independent_assessment": assessment, "trial_errors": errors,
         "model_requests": engine.model_requests, "tool_calls": engine.tool_calls,
         "final_files": final_files,

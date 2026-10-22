@@ -84,6 +84,8 @@ python -m ruff check src tests scripts
 
 测试与 demo 默认使用 mock LLM，不依赖网络或真实 LLM。安全测试入口同时隔离系统 keyring，避免凭据测试读取本机真实值；V2 相关回归使用 `python scripts/run_phase1_tests.py tests/v2 tests/unit tests/demo -q`。
 
+旧版命令 `python -m pytest tests/unit tests/demo -q` 仍对应相同测试集合，但它本身不隔离系统 keyring。直接使用 pytest 时须事先在测试进程隔离凭据后端；本项目推荐上面的安全入口统一处理，避免读取本机真实凭据。
+
 ## 本地 WebUI
 
 ```bash
