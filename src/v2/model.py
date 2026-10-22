@@ -12,6 +12,20 @@ from src.v2.protocol import ContractError, Decision, StepSnapshot
 class ModelInput:
     task: Task
     history: tuple[StepSnapshot, ...]
+    max_input_bytes: int | None = None
+    context_notice: str | None = None
+
+    def __post_init__(self):
+        if not isinstance(self.task, Task) or not isinstance(self.history, tuple) or any(
+            not isinstance(step, StepSnapshot) for step in self.history
+        ):
+            raise ContractError("model input requires a task and immutable step snapshots")
+        if self.max_input_bytes is not None and (
+            type(self.max_input_bytes) is not int or self.max_input_bytes <= 0
+        ):
+            raise ContractError("model input budget must be positive")
+        if self.context_notice is not None and not isinstance(self.context_notice, str):
+            raise ContractError("context notice must be encoded text")
 
 
 class ModelError(Exception):

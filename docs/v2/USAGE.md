@@ -34,6 +34,10 @@ harness-v2 --project E:\path\to\synthetic-project --task "从 README.md 的入�
 
 ## 输出与限制
 
+DeepSeek 输入按完整序列化 payload 的 UTF-8 bytes 计量。内容能放下时不改变请求；超限时先机械压缩长工具观测，保留头尾片段、原输出 SHA／字节数、错误状态、资源版本及制品 ID 等关键元数据；仍超限则按最旧顺序省略完整 Step 调用／响应组，始终保留最近完整组。目标、任务约束、验收条件、系统规则和工具定义不会因此删改。所有改动在输入中的 runtime_context_manifest 明确列出省略 Step 和压缩调用及原哈希，模型可按需重新读取来源／制品。
+
+这不是语义记忆，也不保证被省略的旧事实无用。不能安全放下必要上下文时，以 EXHAUSTED／MODEL_INPUT_LIMIT 结束，不拆批次或发送孤立 tool response；未闭合或含 UNKNOWN 的组不接受为模型上下文。原 Run／报告保留完整 Decision 和 ToolResult，压缩只影响模型输入副本；外部文字仍以 external_tool_observation 或 external_tool_observation_summary 标注，不能提升权限或预算。当前仅 DeepSeek 适配器使用该机械构建器，自定义适配器仍必须通过 Engine 的最终输入预算检查。
+
 stdout 输出 JSON 报告，含 Run/Step/Decision/调用/观测/尝试/事件及模型用量。退出码 0 表示运行正常交付，1 表示未正常交付，2 表示配置或参数错误。`COMPLETED` 不等于目标验收 `PASSED`；当前 Assessment 保持 `UNVERIFIED`。完整持久审计与正式独立验收由后续小目标交付。
 
 审批机制已接入启动边界：默认 `--approvals deny` 对需要人类批准的动作返回拒绝反馈；`--approvals interactive` 展示具体动作，输入 `yes` 批准、`cancel` 取消，其他输入（包括 EOF）拒绝。审批绑定当前 Run、主体、动作参数/版本、可信资源事实、策略版本和期限；资源变化或过期会重新申请，硬拒绝不能被批准覆盖。

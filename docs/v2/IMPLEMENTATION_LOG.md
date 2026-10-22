@@ -221,3 +221,11 @@
 - 通过正常工具许可执行，计入工具／时间预算，基础策略只读允许；没有扩大模型的文件路径权限或写入授权。注册或保存失败保留命令可能副作用的 UNKNOWN 语义。
 - 制品／命令／策略 51 passed，ruff 通过；两位 subagent 分别独立验证同范围 51 passed，状态审核者另验证四项正式动作录制回放 4 passed，均无阻断、可提交。真实 Windows 工具配合 ScriptedModel 已验证命令→凭 ID 读取脱敏尾页→最终回答；未调用真实模型。
 - P1-08 仍进行中，下一切片实现完整调用组的上下文预算，不把本次制品读取当作上下文裁剪完成。
+
+## P1-08b：完整调用组的有界上下文
+
+- 制品读取提交：`7974af2`。新增纯 Context Builder，输入未超限时逐字保持旧 payload；超限时仅机械压缩长工具输出副本，再按完整 Step 省略最旧组。目标、约束、判据、工具定义和最近完整组为必需项；无法容纳时发送前 EXHAUSTED／MODEL_INPUT_LIMIT。
+- 摘要保留 status／error、原输出 SHA／bytes、头尾、命令退出与截断、制品 ID／哈希及输入版本事实；输入清单明确省略组和压缩观测。原 Run 观测不变，不做语义记忆或授权提升；未闭合、缺失响应或 UNKNOWN 组拒绝构建。
+- 最终预算覆盖完整序列化请求，候选渲染不记请求／计费／联网。native 保留原 assistant 与完整 call ID 对应；JSON 路径同样成组。6500 bytes 限额下实际 Windows 命令输出失败尾部，再凭制品 ID 读取并形成回答的离线模型闭环通过。
+- 相关测试 124 passed，后续 native／JSON 参数化补充后 Context 专项 11 passed；全部 src／tests／scripts ruff 和 diff 检查通过。六项正式历史录制回放兼容，真实模型调用零次。
+- 两位 subagent 独立复验分别 39 passed、56 passed，无阻断；第三位复核最终 native／JSON 测试补充，独立 11 passed，确认可提交。P1-08 已完成，继续 P1-09 本地审计、Evidence 与 Assessment。

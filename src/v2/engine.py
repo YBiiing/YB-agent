@@ -223,7 +223,9 @@ class Engine:
                         self._stop(RunState.EXHAUSTED, "MODEL_REQUEST_LIMIT")
                         break
                     try:
-                        request = self.model.prepare(ModelInput(run.task, run.steps[:-1]))
+                        request = self.model.prepare(ModelInput(
+                            run.task, run.steps[:-1], max_input_bytes=self.limits.max_input_bytes,
+                        ))
                         intent = self.model_ledger.prepare(request, step.id)
                     except ModelBudgetError as error:
                         self._stop(RunState.EXHAUSTED, error.code)
