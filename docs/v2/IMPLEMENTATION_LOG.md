@@ -255,3 +255,11 @@
 - 两位审核者共同发现独立验证可与自动证据复用 ID，修复为全局 ID 唯一并补碰撞回归。普通工具 JSON 自称独立验证不能提权，实际文件修改会使旧验证失效。
 - Evidence 专项 17 passed；包含归档、CLI、独立样本验收、基线驱动与六项历史回放的相关组合 122 passed，全 src／tests／scripts ruff 和 diff 检查通过。两位 subagent 首轮各实际复验 64 passed，最终分别 17／67 passed，确认问题关闭、可提交；真实请求零次。
 - P1-09 已完成。通用 API 不执行新脚本或解释任意自然语言，冻结任务的独立验收器仍使用原明确判据；未增加恢复或自动重放。继续 P1-10 跨模块契约回归。
+
+## P1-10：契约场景总回归
+
+- 证据判定提交：`49392e4`。新增 CONTRACT_TESTS.md，将执行契约 I-01～I-08／I-10 及成功、明确失败、混合结果、拒绝、暂停、取消、预算、未知、协议和存储错误映射到实际测试；I-09 明确为第二阶段，不伪造实现。
+- 安全入口完整 V2／旧 unit／demo：595 passed、2 skipped、1 条既有 Starlette 弃用警告，62.54 秒。旧 unit/demo 在 P1-01 隔离条件下基线 149 passed，本次无已知业务回归；未修改旧测试或弱化断言。两项 symlink skip 仍为本机权限限制，Windows junction／硬链接另有实测，Linux 未声明通过。
+- 全量之后新增一条真实跨模块机制测试：待审批无副作用→批准→Windows 命令产生效果→制品保存失败 COMMAND_ARTIFACT_WRITE_FAILED／UNKNOWN→后续 SKIPPED→最终档案完整而 Assessment INCONCLUSIVE；专项 1 passed。模型只请求一次、命令只启动一次，未掩盖已发生效果。
+- 两位 subagent 分别独立复验相关 54 passed 与专项 1 passed，逐项核对文档 31 个命名函数引用存在。IO 审核建议补强精确错误码，已在内存与档案同时断言并专项复验；最终均确认可提交。全 src／tests／scripts ruff 和 diff 检查通过。
+- P1-10 完成。离线机制回归不代替 P1-12 的真实固定样本评测；本轮真实模型请求零次，继续 P1-11 独立安装与使用交付。
