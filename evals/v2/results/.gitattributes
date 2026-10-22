@@ -2,3 +2,4 @@
 */artifacts-*/*.txt -text whitespace=cr-at-eol
 install-smoke-v1/run/** -text
 install-smoke-v1/preflight/** -text
+final-v1/** -text whitespace=cr-at-eol

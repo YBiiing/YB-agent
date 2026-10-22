@@ -282,3 +282,10 @@
 - 最终驱动专项 25 passed，包含静态 guard 拒绝、锁／两次／失败保留、异常费用、未提交零启动、审计失败及改值合成 fixture 的真实工具验收；未执行实际冻结 final 检查或真实最终模型。相关组合 66 passed，全 ruff／diff 检查通过。
 - 首轮全量 620 passed、1 failed、2 skipped、1 条既有警告，唯一失败为 P1-11 README 遗漏旧 pytest 命令说明；补兼容与凭据隔离说明，旧测试原样保留，专项 4 passed。随后完整 V2／旧 unit／demo 621 passed、2 skipped、1 条既有 Starlette 弃用警告，109.01 秒。
 - 两位 subagent 独立审查代码、冻结文档和字节修复，最终各复验 25 passed，另对 README 修补各复验 4 passed，均可提交。本小目标真实模型请求为零，最终 suite 目录尚不存在，P1-12／G1 尚未完成。
+
+## P1-12b-v1：首次真实最终评测，保留失败
+
+- 在提交 e7e7de7 的同一源码／协议／依赖下完成六 Run。read 2/2、repair 0/2、inspect 2/2，整体 FAILED、G1 NOT_PASSED。实际 26 请求、37374 tokens、61.244 秒，累计真实生成 52 请求、69026 tokens；六 Run 均 COMPLETED／内部 UNVERIFIED／audit FINALIZED。
+- 两次 repair 写入 import re／re.sub，超过原已冻结 AST 能力，之后命令均被硬拒绝；没有绕过 guard 执行，没有独立复验，模型最终说明未验证。Task 未披露执行能力是可确认的接口缺口，不能预判修订效果。
+- 正式 final-v1 保留原 suite 全部 45 文件原始字节、冻结协议、RESULTS.json 与报告。两位 subagent 独立核对原副本、六审计、报告对应、源码／协议锁及两种用量统计，结果一致；已知凭据与转义扫描无泄露。Git 属性保护证据原字节。
+- 后续另开 v2，仅披露既有语言限制，保持 guard／清单／预算／2/2 门槛，重新评测全部六 Run；v1 不回改、不混用通过项。新结果仅支持已见固定样本上的约束披露改进与回归结论。P1-12 仍进行中。
