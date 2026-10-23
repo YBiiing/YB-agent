@@ -38,6 +38,21 @@ INSPECT_FINAL_OUTPUT_CONTRACT = (
 )
 
 
+REPAIR_FINAL_CAPABILITIES = (
+    '此修复工作区的执行器仅运行有限纯字符串 Python：labels.py 只含 normalize_label(text)，'
+    '模块和函数可有文档字符串；函数不带装饰器、注解、默认参数或其他参数。'
+    '函数体最多八条单个局部名称赋值，最后一条为返回字符串的 return。'
+    '表达式仅可使用 text、已赋值局部变量、长度不超过 256 的字符串常量和 0..1024 整数常量，'
+    '嵌套深度最多 24；仅允许字符串接收者的方法调用，无关键字参数：'
+    'lower()/upper()、strip() 或 strip(str)、replace(str,str[,int])、'
+    'split() 或 split(str[,int])、join(str-list)。split 产生字符串列表，join 接受该列表；'
+    '局部变量仅可保存字符串或字符串列表。禁止 import（包括 re）、任意其他函数调用、'
+    '反射、属性读取、运算符、分支、循环、推导式和其他语法。'
+    '这些是已有执行能力限制，范围外实现即使等价也会被拒绝；检查脚本不得修改，'
+    '仍须先观察检查失败，修改后再运行同一检查并报告实际结果。'
+)
+
+
 def _supported(sample, final):
     if type(final) is not bool:
         return False
@@ -46,10 +61,16 @@ def _supported(sample, final):
     return sample.get("split") == split and sample.get("id") in (f"repair-{suffix}-01", f"inspect-{suffix}-01")
 
 
-def final_task(sample):
+def final_task(sample, *, repair_contract="none"):
     if not _supported(sample, True):
         raise ValueError("only frozen final action fixtures may run")
-    return Task(sample["task"], constraints=(INSPECT_FINAL_OUTPUT_CONTRACT,) if sample["category"] == "inspect" else ())
+    if repair_contract not in ("none", "bounded-string-capabilities-v1"):
+        raise ValueError("unsupported repair task contract")
+    if sample["category"] == "inspect":
+        constraints = (INSPECT_FINAL_OUTPUT_CONTRACT,)
+    else:
+        constraints = (REPAIR_FINAL_CAPABILITIES,) if repair_contract != "none" else ()
+    return Task(sample["task"], constraints=constraints)
 
 
 def _label_expression(node, names, depth=0):

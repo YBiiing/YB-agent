@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT))
 
 from scripts.run_v2_action_baseline import execute_trial as action_trial  # noqa: E402
 from scripts.run_v2_read_baseline import execute_trial as read_trial, save  # noqa: E402
-from src.v2.action_evaluation import INSPECT_FINAL_OUTPUT_CONTRACT  # noqa: E402
+from src.v2.action_evaluation import INSPECT_FINAL_OUTPUT_CONTRACT, REPAIR_FINAL_CAPABILITIES  # noqa: E402
 from src.v2.command_tools import CommandTools  # noqa: E402
 from src.v2.deepseek import DeepSeekModel, DeepSeekSettings  # noqa: E402
 from src.v2.engine import Limits  # noqa: E402
@@ -44,10 +44,22 @@ def load_protocol(path):
                 or protocol["inspection_output_contract"] != "inspection-retries-json-v1"
                 or protocol["inspection_output_contract_sha256"] != hashlib.sha256(INSPECT_FINAL_OUTPUT_CONTRACT.encode()).hexdigest()
                 or protocol["repair_execution_guard"] != "bounded-string-ast-v1"
-                or protocol["frozen_before_first_real_final_run"] is not True
                 or set(protocol["categories"]) != {"read", "repair", "inspect"}):
             raise ValueError
         Limits(**protocol["limits"])
+        contract_keys = {"repair_task_contract", "repair_task_contract_sha256", "reevaluation_of"}
+        if protocol["evaluation_version"] == "phase1-final-v1":
+            if contract_keys.intersection(protocol) or protocol["frozen_before_first_real_final_run"] is not True:
+                raise ValueError
+        elif protocol["evaluation_version"] == "phase1-final-v2":
+            if (protocol["repair_task_contract"] != "bounded-string-capabilities-v1"
+                    or protocol["repair_task_contract_sha256"] != hashlib.sha256(REPAIR_FINAL_CAPABILITIES.encode()).hexdigest()
+                    or protocol["reevaluation_of"] != "phase1-final-v1"
+                    or "frozen_before_first_real_final_run" in protocol
+                    or protocol["frozen_before_first_real_version_run"] is not True):
+                raise ValueError
+        else:
+            raise ValueError
         for category, spec in protocol["categories"].items():
             if (spec != {"sample_id": f"{category}-final-01", "required_successes": 2}
                     or type(spec["required_successes"]) is not int):
@@ -143,7 +155,10 @@ async def run_batch(config, category, protocol_path):
                     if category == "read":
                         summary, error = await read_trial(sample, project, model, limits, index, output, final=True)
                     else:
-                        summary, error = await action_trial(sample, project, model, tools, limits, index, output, final=True)
+                        summary, error = await action_trial(
+                            sample, project, model, tools, limits, index, output, final=True,
+                            repair_contract=protocol.get("repair_task_contract", "none"),
+                        )
                 except BaseException as trial_error:
                     # A setup/export failure outside the helper's inner guard
                     # must not erase sends or pretend their usage was zero.

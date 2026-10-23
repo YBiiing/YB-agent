@@ -76,3 +76,19 @@ read-final-01 保持原任务及事实／来源／全文件不变判据。repair
 inspect-final-01 在首次真实执行前固定 `inspection-retries-json-v1`：最终只输出 check_exit_code、verdict、findings，每项 finding 只含 code、subjects、value（实际次数）、limit（文档上限）。字段含义由 Task.constraints 提供，不提供 beta／5／3 等答案；验收器从冻结 README／limits.json 独立推导，逐项核对计数、上限、对象、问题代码和非零退出，拒绝重复键／附加文字／矛盾 passed。它没有复用开发样本的端口冲突判据。
 
 final 模式显式接入本地审计，派发及观测遵循同一 Engine 规则；审计失败不能得到独立 PASSED。action 仍需读全文件、取得可靠当前检查、遵守修改范围与顺序，并在正常且无 UNKNOWN 后执行外部独立复验。运行审计保存内部 UNVERIFIED；具体独立结论保存在每次 run-XX.json 的 independent_assessment，不能把两者混为一谈。原开发入口仍只选择 development，不自动开启 final。
+
+## P1-12 v2：已见固定样本的能力约束披露重评
+
+首次 v1 结果为 read 2/2、repair 0/2、inspect 2/2，完整证据保留于 results/final-v1，G1 未通过。两次修复均使用 import re，超过已存在的 AST 能力范围；Task 未披露该范围，修改后检查被拒绝。v2 只修复任务信息契约，不改执行 guard、验收器、清单、预算或 2/2 门槛，也不提供具体实现答案。
+
+`final-v2.json` 显式绑定 repair_task_contract=bounded-string-capabilities-v1 及文本 SHA，reevaluation_of=phase1-final-v1。约束文本披露函数／赋值／return 结构、静态类型、方法签名、常量与深度限制、禁止导入／反射／控制流等既有边界。v1 协议不接受新契约字段，原 repair Task 仍无附加约束；开发入口不接收此 final 契约。协议冻结字段改为 frozen_before_first_real_version_run，只指 v2 首次执行前冻结，不声称从未查看过最终样本。
+
+使用下列命令分别执行三类；默认入口仍选择历史 v1，不会静默改用 v2：
+
+```powershell
+python scripts/run_v2_final.py --config E:\path\to\config.yaml --protocol evals/v2/final-v2.json --category read
+python scripts/run_v2_final.py --config E:\path\to\config.yaml --protocol evals/v2/final-v2.json --category repair
+python scripts/run_v2_final.py --config E:\path\to\config.yaml --protocol evals/v2/final-v2.json --category inspect
+```
+
+新 suite 独立保存在 .harness/phase1-final-evals/phase1-final-v2；全部三类六 Run 重跑，不复用 v1 成功项。每 Run 最多六请求、单次输出 1024 tokens、运行 180 秒，整套最多 36 请求；失败占用该版本类别，不覆盖或补挑最佳结果。v1 永久保持原失败结论。即使 v2 全部通过，也仅支持已见固定样本上的约束披露改进与回归验证，不构成未见样本泛化证明。

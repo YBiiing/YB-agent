@@ -29,14 +29,16 @@ from src.v2.model import ModelError  # noqa: E402
 from src.v2.report import run_report  # noqa: E402
 
 
-async def execute_trial(sample, project, model, tools, limits, index, output, *, final=False):
+async def execute_trial(sample, project, model, tools, limits, index, output, *, final=False, repair_contract="none"):
+    if not final and repair_contract != "none":
+        raise ValueError("repair task contract is final-only")
     tools.redact = model.redact
     audit_options = {}
     if final:
         audit = output / "audit"
         audit.mkdir(exist_ok=True)
         audit_options["archive_dir"] = audit
-    engine = Engine(final_task(sample) if final else development_task(sample), model, tools, limits=limits,
+    engine = Engine(final_task(sample, repair_contract=repair_contract) if final else development_task(sample), model, tools, limits=limits,
                     permissions=fixture_permissions(sample, project, final=final), **audit_options)
     before = file_hashes(project)
     started = time.monotonic()

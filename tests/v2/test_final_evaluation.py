@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from scripts import run_v2_final as driver
-from src.v2.action_evaluation import final_task, fixture_execution_safe, fixture_permissions, inspection_conclusion_matches
+from src.v2.action_evaluation import REPAIR_FINAL_CAPABILITIES, final_task, fixture_execution_safe, fixture_permissions, inspection_conclusion_matches
 from src.v2.model import Model, ModelError
 
 
@@ -100,6 +100,32 @@ def test_final_protocol_is_pinned_to_manifest_limits_and_two_runs(tmp_path):
         driver.load_protocol(target)
 
 
+def test_v2_discloses_capabilities_without_changing_legacy_task_or_guard(tmp_path):
+    data = sample("repair")
+    assert final_task(data).constraints == ()
+    task = final_task(data, repair_contract="bounded-string-capabilities-v1")
+    assert task.constraints == (REPAIR_FINAL_CAPABILITIES,) and task.goal == data["task"]
+    assert "import" in task.constraints[0] and "re" in task.constraints[0]
+    (tmp_path / "check.py").write_bytes(data["files"]["check.py"].encode())
+    (tmp_path / "labels.py").write_bytes(b"import re\ndef normalize_label(text):\n    return re.sub(r'\\s+', '-', text)\n")
+    assert not fixture_execution_safe(data, tmp_path, final=True)
+    with pytest.raises(ValueError, match="unsupported repair"):
+        final_task(data, repair_contract="unfrozen")
+
+
+def test_v2_protocol_rejects_contract_drift_or_legacy_silent_upgrade(tmp_path):
+    original = json.loads((ROOT / "evals/v2/final-v2.json").read_text())
+    assert driver.load_protocol(ROOT / "evals/v2/final-v2.json")[0] == original
+    target = tmp_path / "protocol.json"
+    for key, value in (("repair_task_contract", "none"), ("repair_task_contract_sha256", "0" * 64),
+                       ("reevaluation_of", "other"), ("evaluation_version", "phase1-final-v1"),
+                       ("frozen_before_first_real_version_run", False)):
+        changed = {**original, key: value}
+        target.write_text(json.dumps(changed))
+        with pytest.raises(ModelError, match="FINAL_PROTOCOL_INVALID"):
+            driver.load_protocol(target)
+
+
 def fake_driver(tmp_path, monkeypatch, *, outcomes=("PASSED", "PASSED"), interrupt=False):
     (tmp_path / "evals/v2").mkdir(parents=True)
     (tmp_path / "evals/v2/tasks.json").write_bytes((ROOT / "evals/v2/tasks.json").read_bytes())
@@ -150,6 +176,24 @@ async def test_final_driver_runs_exactly_two_and_refuses_replacement_attempts(tm
     assert len(models) == 2
 
 
+async def test_v2_driver_forwards_frozen_contract_and_keeps_v1_separate(tmp_path, monkeypatch):
+    config, protocol, models = fake_driver(tmp_path, monkeypatch)
+    protocol.write_bytes((ROOT / "evals/v2/final-v2.json").read_bytes())
+    received = []
+
+    async def trial(sample, project, model, tools, limits, index, output, *, final, repair_contract):
+        received.append((final, repair_contract))
+        await model.close()
+        return {"trial": index, "assessment": "PASSED", "trial_errors": []}, None
+
+    monkeypatch.setattr(driver, "action_trial", trial)
+    assert await driver.run_batch(config, "repair", protocol) == 0
+    assert received == [(True, "bounded-string-capabilities-v1")] * 2
+    assert len(models) == 2
+    assert (tmp_path / ".harness/phase1-final-evals/phase1-final-v2/repair/summary.json").exists()
+    assert not (tmp_path / ".harness/phase1-final-evals/phase1-final-v1").exists()
+
+
 async def test_failed_final_result_is_kept_and_second_run_is_not_a_replacement(tmp_path, monkeypatch):
     config, protocol, models = fake_driver(tmp_path, monkeypatch, outcomes=("FAILED", "PASSED"))
     assert await driver.run_batch(config, "read", protocol) == 1
@@ -179,7 +223,8 @@ async def test_source_or_runtime_change_prevents_cross_category_configuration_mi
         await driver.run_batch(config, "inspect", protocol)
     assert not (tmp_path / ".harness/phase1-final-evals/phase1-final-v1/inspect").exists()
 
-async def test_final_action_helper_validates_synthetic_repair_with_real_tools(tmp_path):
+@pytest.mark.parametrize("repair_contract", ["none", "bounded-string-capabilities-v1"])
+async def test_final_action_helper_validates_synthetic_repair_with_real_tools(tmp_path, repair_contract):
     import hashlib
     from scripts.run_v2_action_baseline import execute_trial
     from src.v2.command_tools import CommandTools
@@ -212,12 +257,14 @@ async def test_final_action_helper_validates_synthetic_repair_with_real_tools(tm
     model.recorded_requests, model.recorded_replies = (), ()
     tools = CommandTools(project, scripts=("check.py",), inputs=tuple(data["files"]), allowed_changes=("labels.py",),
                          artifact_dir=output / "artifacts-01")
-    summary, error = await execute_trial(data, project, model, tools, Limits(), 1, output, final=True)
+    summary, error = await execute_trial(data, project, model, tools, Limits(), 1, output,
+                                         final=True, repair_contract=repair_contract)
     assert error is None and summary["assessment"] == "PASSED", summary
     report = json.loads((output / "run-01.json").read_text(encoding="utf-8"))
     assert report["run"]["audit"]["status"] == "FINALIZED" and report["run"]["assessment"] == "UNVERIFIED"
     assert report["independent_assessment"]["checks"]["failed_then_modified_then_verified"]
     assert report["model_requests"] == 5 and report["tool_calls"] == 5
+    assert report["run"]["task"]["constraints"] == ([] if repair_contract == "none" else [REPAIR_FINAL_CAPABILITIES])
 
 
 async def test_final_action_helper_validates_synthetic_retry_inspection_with_real_tools(tmp_path):
