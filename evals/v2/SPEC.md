@@ -92,3 +92,11 @@ python scripts/run_v2_final.py --config E:\path\to\config.yaml --protocol evals/
 ```
 
 新 suite 独立保存在 .harness/phase1-final-evals/phase1-final-v2；全部三类六 Run 重跑，不复用 v1 成功项。每 Run 最多六请求、单次输出 1024 tokens、运行 180 秒，整套最多 36 请求；失败占用该版本类别，不覆盖或补挑最佳结果。v1 永久保持原失败结论。即使 v2 全部通过，也仅支持已见固定样本上的约束披露改进与回归验证，不构成未见样本泛化证明。
+
+## P1-12 v3：公开工具与固定策略一致
+
+v2 实际结果 read 2/2、repair 1/2、inspect 2/2，完整失败保留于 results/final-v2。第二次修复已有可靠修改后检查，但模型继续调用公开的 read_artifact，超出 fixture 策略与验收范围而失败。v3 仅在最终评测 runner 投影模型可见工具，不改通用工具、原 fixture 策略、AST guard 或独立验收器，不将历史失败改判。
+
+`final-v3.json` 绑定前版 v2、有序精确 offered_action_tools=[read_file,write_file,run_command]，复用 v2 能力说明及摘要。runner 从真实注册定义选取完整 schema，缺失或重复注册失败关闭，不自行重写参数定义。v1／v2 仍向模型提供历史四工具；v3 只有三工具。公开定义不是授权：即使供应商返回隐藏工具调用，原硬规则仍拒绝，范围验收仍失败，不执行独立复验。制品的完整保存／审计不受模型可见定义影响。
+
+执行方式与 v2 相同，将 --protocol 改为 evals/v2/final-v3.json。默认协议继续为 v1；新 suite 为 .harness/phase1-final-evals/phase1-final-v3。任务清单、三类各两次、2/2 门槛、每 Run 六请求／单次输出 1024 tokens／180 秒、全套 36 请求上限全部不变。提交冻结后完整重跑六 Run，不挑类别、混用旧成功或事后放宽拒绝。v3 仍为已见固定样本上的接口修订回归，不能证明未见任务泛化。

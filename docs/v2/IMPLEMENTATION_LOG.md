@@ -303,3 +303,10 @@
 - 两次修复均通过修改后实际检查；第二次随后尝试模型已获公开定义的 read_artifact，却被 fixture 硬拒。验收器如实记范围违规并不执行独立复验，不能改判通过。这是评测工具暴露／策略不一致，拟在新版本仅过滤 offered definitions，不放宽硬规则或判据。
 - 正式 final-v2 保留原 suite 49 文件原字节、协议及附加汇总，逐字比对、六审计与供应商／账本费用核对通过，凭据扫描无泄露。修正 USAGE 已过期的审计与验收说明。失败保留、全类重评及已见样本限制不变，P1-12 继续。
 - 两位 subagent 独立复核原副本／源码锁／审计／费用／最终文字，均确认 v2 FAILED 与 G1 未通过准确、正式证据可提交；并认可下一版本仅收窄模型公开定义、保持原拒绝及验收器的最小修订方向。
+
+## P1-12e：工具定义与评测策略对齐
+
+- v2 失败证据提交 `001856a`。v3 仅在最终 runner 按协议有序列表从真实注册定义选择 read_file／write_file／run_command，缺失或重名失败关闭。v1／v2 原四定义保持，通用 CommandTools／DeepSeek／fixture guard／验收器未修改。
+- final-v3 显式前版 v2、新 suite、工具精确列表，继续复用原能力说明；预算／清单／分类门槛不变。模型返回隐藏 read_artifact 仍硬拒并范围验收失败，不追改历史。
+- 专项 35 passed；包含三版本实际 HTTP MockTransport payload 定义／schema 核对、协议漂移与重复注册拒绝，以及成功检查后尝试本 Run 隐藏制品仍拒绝且不独立复验。所有模型离线、未执行真实最终样本，v3 尚无真实请求。
+- 两位 subagent 独立审查并复验专项分别 35 passed（7.94／8.05 秒），均可提交。完整 V2／旧 unit／demo 回归 631 passed、2 skipped、1 条既有 Starlette 弃用警告，107.27 秒；全 src／tests／scripts ruff 与 diff 检查通过。两项 skip 仍为 symlink 权限限制，不宣称已验证。

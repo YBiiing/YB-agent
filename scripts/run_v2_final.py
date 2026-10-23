@@ -47,16 +47,19 @@ def load_protocol(path):
                 or set(protocol["categories"]) != {"read", "repair", "inspect"}):
             raise ValueError
         Limits(**protocol["limits"])
-        contract_keys = {"repair_task_contract", "repair_task_contract_sha256", "reevaluation_of"}
+        contract_keys = {"repair_task_contract", "repair_task_contract_sha256", "reevaluation_of", "offered_action_tools"}
         if protocol["evaluation_version"] == "phase1-final-v1":
             if contract_keys.intersection(protocol) or protocol["frozen_before_first_real_final_run"] is not True:
                 raise ValueError
-        elif protocol["evaluation_version"] == "phase1-final-v2":
+        elif protocol["evaluation_version"] in ("phase1-final-v2", "phase1-final-v3"):
+            version3 = protocol["evaluation_version"] == "phase1-final-v3"
             if (protocol["repair_task_contract"] != "bounded-string-capabilities-v1"
                     or protocol["repair_task_contract_sha256"] != hashlib.sha256(REPAIR_FINAL_CAPABILITIES.encode()).hexdigest()
-                    or protocol["reevaluation_of"] != "phase1-final-v1"
+                    or protocol["reevaluation_of"] != ("phase1-final-v2" if version3 else "phase1-final-v1")
                     or "frozen_before_first_real_final_run" in protocol
-                    or protocol["frozen_before_first_real_version_run"] is not True):
+                    or protocol["frozen_before_first_real_version_run"] is not True
+                    or (protocol.get("offered_action_tools") != ["read_file", "write_file", "run_command"]
+                        if version3 else "offered_action_tools" in protocol)):
                 raise ValueError
         else:
             raise ValueError
@@ -76,6 +79,21 @@ def source_signature():
     paths = [*(ROOT / "src/v2").glob("*.py"), ROOT / "scripts/run_v2_final.py",
              ROOT / "scripts/run_v2_read_baseline.py", ROOT / "scripts/run_v2_action_baseline.py"]
     return {path.relative_to(ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(paths)}
+
+
+def action_definitions(tools, protocol):
+    """Project actual registered schemas; never expand fixture permissions."""
+    definitions = tools.definitions
+    if protocol["evaluation_version"] != "phase1-final-v3":
+        return definitions  # Preserve the historical v1/v2 offered definitions.
+    try:
+        names = [item["function"]["name"] for item in definitions]
+        selected = protocol["offered_action_tools"]
+        if len(names) != len(set(names)) or any(name not in names for name in selected):
+            raise ValueError
+        return [definitions[names.index(name)] for name in selected]
+    except (KeyError, TypeError, ValueError) as error:
+        raise ModelError("FINAL_TOOL_DEFINITIONS_MISMATCH") from error
 
 
 async def run_batch(config, category, protocol_path):
@@ -142,7 +160,7 @@ async def run_batch(config, category, protocol_path):
                         from src.v2.tools import ReadOnlyTools
                         definitions = ReadOnlyTools(project).definitions
                     else:
-                        definitions = tools.definitions
+                        definitions = action_definitions(tools, protocol)
                     model = ProgressModel(settings, definitions)
                 except Exception as error:
                     code = error.code if isinstance(error, ModelError) else "MODEL_INITIALIZATION_ERROR"

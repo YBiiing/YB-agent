@@ -126,6 +126,60 @@ def test_v2_protocol_rejects_contract_drift_or_legacy_silent_upgrade(tmp_path):
             driver.load_protocol(target)
 
 
+def test_v3_tool_exposure_is_frozen_and_invalid_registrations_fail_closed(tmp_path):
+    protocol, _ = driver.load_protocol(ROOT / "evals/v2/final-v3.json")
+    target = tmp_path / "protocol.json"
+    for tools in (["read_file", "write_file", "run_command", "read_artifact"],
+                  ["read_file", "read_file", "run_command"], ["run_command", "read_file", "write_file"]):
+        target.write_text(json.dumps({**protocol, "offered_action_tools": tools}))
+        with pytest.raises(ModelError, match="FINAL_PROTOCOL_INVALID"):
+            driver.load_protocol(target)
+    for definitions in ([], [{"function": {"name": "read_file"}}] * 2):
+        with pytest.raises(ModelError, match="FINAL_TOOL_DEFINITIONS_MISMATCH"):
+            driver.action_definitions(SimpleNamespace(definitions=definitions), protocol)
+    for version in (1, 2):
+        old = json.loads((ROOT / f"evals/v2/final-v{version}.json").read_text())
+        target.write_text(json.dumps({**old, "offered_action_tools": protocol["offered_action_tools"]}))
+        with pytest.raises(ModelError, match="FINAL_PROTOCOL_INVALID"):
+            driver.load_protocol(target)
+
+
+@pytest.mark.parametrize("version", [1, 2, 3])
+async def test_actual_payload_only_offers_v3_fixture_tools_and_preserves_registered_schemas(tmp_path, version):
+    import httpx
+    from src.v2.command_tools import CommandTools
+    from src.v2.deepseek import DeepSeekModel, DeepSeekSettings
+    from src.v2.engine import Engine
+
+    protocol, _ = driver.load_protocol(ROOT / f"evals/v2/final-v{version}.json")
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "check.py").write_bytes(b"print('SYNTHETIC_ONLY')\n")
+    tools = CommandTools(project, scripts=("check.py",), inputs=("check.py",), artifact_dir=tmp_path / "artifacts")
+    offered = driver.action_definitions(tools, protocol)
+    received = []
+
+    def handler(request):
+        received.append(json.loads(request.content))
+        return httpx.Response(200, json={
+            "id": "synthetic", "model": "synthetic", "object": "chat.completion", "created": 0,
+            "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": "done"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        })
+
+    model = DeepSeekModel(DeepSeekSettings(), offered, api_key="offline-synthetic-key", transport=httpx.MockTransport(handler))
+    try:
+        await Engine("synthetic tool exposure only", model, tools).execute()
+    finally:
+        await model.close()
+    assert len(received) == 1
+    assert received[0]["tools"] == offered
+    names = [item["function"]["name"] for item in received[0]["tools"]]
+    assert names == (["read_file", "write_file", "run_command"] if version == 3
+                     else ["read_file", "write_file", "run_command", "read_artifact"])
+    assert all(item in tools.definitions for item in offered)
+
+
 def fake_driver(tmp_path, monkeypatch, *, outcomes=("PASSED", "PASSED"), interrupt=False):
     (tmp_path / "evals/v2").mkdir(parents=True)
     (tmp_path / "evals/v2/tasks.json").write_bytes((ROOT / "evals/v2/tasks.json").read_bytes())
@@ -224,7 +278,8 @@ async def test_source_or_runtime_change_prevents_cross_category_configuration_mi
     assert not (tmp_path / ".harness/phase1-final-evals/phase1-final-v1/inspect").exists()
 
 @pytest.mark.parametrize("repair_contract", ["none", "bounded-string-capabilities-v1"])
-async def test_final_action_helper_validates_synthetic_repair_with_real_tools(tmp_path, repair_contract):
+@pytest.mark.parametrize("try_hidden", [False, True])
+async def test_final_action_helper_validates_synthetic_repair_with_real_tools(tmp_path, repair_contract, try_hidden):
     import hashlib
     from scripts.run_v2_action_baseline import execute_trial
     from src.v2.command_tools import CommandTools
@@ -247,24 +302,36 @@ async def test_final_action_helper_validates_synthetic_repair_with_real_tools(tm
     corrected = "def normalize_label(text):\n    return '-'.join(text.lower().split())\n"
     def command():
         return ToolCall("run_command", {"program": "python", "args": ["check.py"]})
-    model = ScriptedModel([
+    script = [
         Decision.tools([ToolCall("read_file", {"path": name}) for name in data["required_reads"]]),
         Decision.tools([command()]),
         Decision.tools([ToolCall("write_file", {"path": "labels.py", "content": corrected,
                                               "expected_sha256": hashlib.sha256(original.encode()).hexdigest()})]),
-        Decision.tools([command()]), Decision.final("observed failure then correction then success"),
-    ])
+        Decision.tools([command()]),
+    ]
+    if try_hidden:
+        def hidden(context):
+            data = json.loads(next(iter(context.history[-1].observations.values())).output)
+            return Decision.tools([ToolCall("read_artifact", {"artifact_id": data["artifact_id"], "offset": 0, "length": 1})])
+        script.append(hidden)
+    script.append(Decision.final("observed failure then correction then success"))
+    model = ScriptedModel(script)
     model.recorded_requests, model.recorded_replies = (), ()
     tools = CommandTools(project, scripts=("check.py",), inputs=tuple(data["files"]), allowed_changes=("labels.py",),
                          artifact_dir=output / "artifacts-01")
     summary, error = await execute_trial(data, project, model, tools, Limits(), 1, output,
                                          final=True, repair_contract=repair_contract)
-    assert error is None and summary["assessment"] == "PASSED", summary
+    assert error is None and summary["assessment"] == ("FAILED" if try_hidden else "PASSED"), summary
     report = json.loads((output / "run-01.json").read_text(encoding="utf-8"))
     assert report["run"]["audit"]["status"] == "FINALIZED" and report["run"]["assessment"] == "UNVERIFIED"
     assert report["independent_assessment"]["checks"]["failed_then_modified_then_verified"]
-    assert report["model_requests"] == 5 and report["tool_calls"] == 5
+    assert report["model_requests"] == (6 if try_hidden else 5) and report["tool_calls"] == 5
     assert report["run"]["task"]["constraints"] == ([] if repair_contract == "none" else [REPAIR_FINAL_CAPABILITIES])
+    if try_hidden:
+        result = next(iter(report["run"]["steps"][-2]["observations"].values()))
+        assert result["status"] == "denied" and result["error"] == "FROZEN_FIXTURE_SCOPE_DENIED"
+        assert not report["independent_assessment"]["checks"]["no_scope_violation"]
+        assert report["independent_assessment"]["independent_check"] is None
 
 
 async def test_final_action_helper_validates_synthetic_retry_inspection_with_real_tools(tmp_path):
