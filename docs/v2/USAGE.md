@@ -1,6 +1,6 @@
 # V2 当前使用方式
 
-当前已实现只读循环、受控版本写入、Windows Python 检查、离线 mock、DeepSeek 适配、运行控制、本地审计与条件验收。三类真实开发基线均连续两次通过；最终 v1 为 read 2/2、repair 0/2、inspect 2/2，重评 v2 为 read 2/2、repair 1/2、inspect 2/2，G1 尚未通过。完整失败证据分别见 `evals/v2/results/final-v1/REPORT.md` 和 `final-v2/REPORT.md`，后续修订不得覆盖。
+第一阶段已完成只读循环、受控版本写入、Windows Python 检查、离线 mock、DeepSeek 适配、运行控制、本地审计与条件验收。v3 三类固定任务均 2/2，G1 在该修订配置与已验证 Windows 范围内通过；这是已见样本上的接口修订重评。v1 修复 0/2、v2 修复 1/2 的失败完整保留，不能回改。阶段证据、安装版本与能力边界见 [PHASE1_RESULTS.md](PHASE1_RESULTS.md)，三版原始证据位于 `evals/v2/results/final-v*/`。
 
 ## 安装与离线演示
 

@@ -10,7 +10,7 @@ V2 通过独立入口 `harness-v2` 提供单进程、多轮模型决策、受控
 
 - 从 [V2 安装与独立使用](docs/v2/INSTALL.md) 开始；完整参数、控制和归档见 [使用说明](docs/v2/USAGE.md)。
 - 执行保证和实际回归见 [契约测试映射](docs/v2/CONTRACT_TESTS.md)及[审计与证据格式](docs/v2/AUDIT.md)。
-- 三类真实开发基线已保存；最终固定样本评测与 G1 结论仍以 [第一阶段计划](docs/v2/PHASE1_PLAN.md)和实施记录为准。
+- 第一阶段 G1 在 v3 修订配置与已验证 Windows 范围内通过，三类固定任务各 2/2；v1／v2 失败完整保留。这是已见样本的接口修订回归，证据与未验证范围见 [阶段验收汇总](docs/v2/PHASE1_RESULTS.md)。
 
 当前仅验证所列 Windows 行为，不提供自动崩溃续跑、任意代码 OS 沙箱、长期记忆或 Multi-Agent。下文继续介绍旧版 CLI／REPL／Web demo；不能把旧版能力自动归为 V2 已交付。
 

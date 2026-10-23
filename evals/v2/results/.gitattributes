@@ -4,3 +4,4 @@ install-smoke-v1/run/** -text
 install-smoke-v1/preflight/** -text
 final-v1/** -text whitespace=cr-at-eol
 final-v2/** -text whitespace=cr-at-eol
+final-v3/** -text whitespace=cr-at-eol

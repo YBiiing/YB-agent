@@ -310,3 +310,12 @@
 - final-v3 显式前版 v2、新 suite、工具精确列表，继续复用原能力说明；预算／清单／分类门槛不变。模型返回隐藏 read_artifact 仍硬拒并范围验收失败，不追改历史。
 - 专项 35 passed；包含三版本实际 HTTP MockTransport payload 定义／schema 核对、协议漂移与重复注册拒绝，以及成功检查后尝试本 Run 隐藏制品仍拒绝且不独立复验。所有模型离线、未执行真实最终样本，v3 尚无真实请求。
 - 两位 subagent 独立审查并复验专项分别 35 passed（7.94／8.05 秒），均可提交。完整 V2／旧 unit／demo 回归 631 passed、2 skipped、1 条既有 Starlette 弃用警告，107.27 秒；全 src／tests／scripts ruff 与 diff 检查通过。两项 skip 仍为 symlink 权限限制，不宣称已验证。
+
+## P1-12f-v3：最终实测与第一阶段验收
+
+- 在提交 `80e4f5a` 的同一源码／协议／配置／依赖下完整重跑六 Run，read／repair／inspect 均 2/2，外部全部 PASSED。实际 24 请求、33391 tokens、60.803 秒；累计真实生成 101 请求、141964 tokens，包含所有失败与安装冒烟。请求 deepseek-chat，实际响应标识均 deepseek-flash。
+- 六 Run 均 COMPLETED、内部 UNVERIFIED、audit FINALIZED，无 UNKNOWN 或 trial errors；两次修复均初始失败→合法写入→同检查成功→独立复验成功。检查类保持文件不变并实际／独立观察预期 exit 1、正确报告违规。所有 action payload 仅公开三项真实注册 schema。
+- 正式 final-v3 保留原 suite 49 文件原字节、协议与附加汇总，逐字核对、六审计 VERIFIED、源码／协议锁与供应商／账本双算一致，凭据及转义扫描无泄露。两位 subagent 独立审核全部上述证据，结合机制、安全、控制、安装与平台边界均无阻断，认可 G1 在 v3／Windows 范围内通过。
+- 新增 PHASE1_RESULTS.md 逐条映射 G1，补齐三版结果／累计成本／历史安装 wheel 版本限制；同步计划完成状态、README 与 USAGE，修正实际路径／必选模型／Windows 验证范围。v1／v2 仍失败，v3 仅为已见固定样本接口修订回归，不声明未见任务泛化、Linux 或一般沙箱。
+- P1-01～P1-12 完成；第二阶段未启动。没有推送、部署、生产操作或新增后台服务。历史临时 venv 清理的执行层拒绝仍如实保留，不绕过该拒绝；当前任务的正式评测与审计证据保留。
+- 两位 subagent 最终文档复核均通过：G1 八项证据、三版失败／成功边界、成本、历史 wheel 与当前源码区别、平台和链接准确，可提交。README 相关旧测试原样复验 4 passed，全 ruff／diff 检查通过；本轮临时汇总脚本已移除，正式原始评测未清理或覆盖。
