@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "E:\A-project\YB-agent\.harness\phase1-final-evals\phase1-final-v2\repair\workspace-01-bpxtt7gz\check.py", line 4, in <module>
+    assert normalize_label('  Hello   World ') == 'hello-world'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

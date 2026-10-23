@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "protocol": {
+    "schema_version": 1,
+    "evaluation_version": "phase1-final-v2",
+    "dataset_version": 1,
+    "manifest_sha256": "9c41f4f372b1a23cc5aaf1e176a1bbf0a14e7d8f425f52cc525bcc7fa1f3ee9a",
+    "repetitions": 2,
+    "categories": {
+      "read": {
+        "sample_id": "read-final-01",
+        "required_successes": 2
+      },
+      "repair": {
+        "sample_id": "repair-final-01",
+        "required_successes": 2
+      },
+      "inspect": {
+        "sample_id": "inspect-final-01",
+        "required_successes": 2
+      }
+    },
+    "settings": {
+      "model": "deepseek-chat",
+      "base_url": "https://api.deepseek.com/v1",
+      "format": "native"
+    },
+    "limits": {
+      "max_steps": 6,
+      "max_model_requests": 6,
+      "max_tool_calls": 12,
+      "run_seconds": 180,
+      "model_seconds": 45,
+      "tool_seconds": 5,
+      "max_input_bytes": 16384,
+      "max_output_tokens": 1024,
+      "max_total_tokens": 131072,
+      "max_model_retries": 0,
+      "retry_seconds": 0.25,
+      "approval_seconds": 60,
+      "pause_seconds": 60
+    },
+    "batch_max_model_requests": 12,
+    "suite_max_model_requests": 36,
+    "inspection_output_contract": "inspection-retries-json-v1",
+    "inspection_output_contract_sha256": "79b48ab536e99b71f0de57727a55eccbe108fc660abcb7f592da98f8cdf67824",
+    "repair_execution_guard": "bounded-string-ast-v1",
+    "repair_task_contract": "bounded-string-capabilities-v1",
+    "repair_task_contract_sha256": "7e35290d4ca991ceec594f82da5f5348f3f77ca340fa9f29c65a3c0229b99fcb",
+    "reevaluation_of": "phase1-final-v1",
+    "frozen_before_first_real_version_run": true
+  },
+  "protocol_sha256": "85a0d527537317e0119aa4554dccf49b0d2a213cc04c23aaafddf994499dd9aa",
+  "source_hashes": {
+    "scripts/run_v2_action_baseline.py": "bf9ae07887a332f9790ca61566bac4d0ada0824802907473870e40fe55cc4ad3",
+    "scripts/run_v2_final.py": "4d9dc79202672010ca8547165a41b5a67d350b8c7e25f439f3753c2d02f9e3e0",
+    "scripts/run_v2_read_baseline.py": "382aeed86c708fd4af803711c1c799bc1c6b48c4b1c801974bfaed66d55c1c32",
+    "src/v2/__init__.py": "b23300cdc0c77cacf5b6bb4f949fecdbb4832c5a107c1ffbc1bbdb376aec8aaa",
+    "src/v2/__main__.py": "57b5292650b47bd5579003cad530f9dd2f0d528462d15463398df9215f4030fa",
+    "src/v2/action_evaluation.py": "51d4b2fb014c8b9d4d55ce25b7382300d51d635b97fb1735e26ace405b082e13",
+    "src/v2/archive.py": "407566c5e856413bd7cdfd01cfa7f7558beddada66069d909fd572f977d63a19",
+    "src/v2/artifacts.py": "9f80ca5b87ce537db6f6d33102bba4577c1a95ed9b562b00a7f37eb1fdcb52c0",
+    "src/v2/cli.py": "be6fc5ee608590f7be9fb959319059f0d925bd72b59d8a0beb62c0bb2ad48b1d",
+    "src/v2/command_tools.py": "9cd95ba4e61f0d84b25003eed4e59685802d165d79789236889488e149b39319",
+    "src/v2/context.py": "e71dcae2137430b496adad9791d81383fe4a0bec962cb112e749acb779698604",
+    "src/v2/control.py": "b39c894937367373a0f85d44c94668e5d345b49a0abbbd9e30479cb0ea529ded",
+    "src/v2/controller.py": "3e0a1d7c0031405d4a56e867021aebf928e8254665fbe11bf89415b632a97316",
+    "src/v2/deepseek.py": "f0f84a123bed2e0a432eb76c25dbed4d0d3df1c2966851aacae53df12685b476",
+    "src/v2/engine.py": "4c43932be8e422e996cdcca46bf51072d003d6f67cccc1fe4bbd34b1d67c0ccc",
+    "src/v2/evaluation.py": "620bb87456fe68d1f77607d9b10310cf9a086bc5bfc405e3be86c81e9444a2c9",
+    "src/v2/evidence.py": "32370d557ed28814349690a1f3261e7d9180a9f7882fbee2efa10669c06df263",
+    "src/v2/model.py": "9594de5d6e8d4fce34892aa2c5a896f50f88303b861fbdea3c63741010e10ead",
+    "src/v2/model_budget.py": "7181f5197bd266452d88d338acfe29fab11a1741c358cfe45c8664c86e9cd119",
+    "src/v2/operator_input.py": "a94144fe2978e0eb88381dd1c85b6b4d703f38d71aa0bd9ad2dcfa0b93236aa9",
+    "src/v2/policy.py": "26bd36179d5afe1425c9f859f10d41aef55b8d2abe1b3a452721fb0468d48b51",
+    "src/v2/process.py": "9ea1dfb969f21bac37a6386a5cc438fd7612e791140a660eaafb75283500bde2",
+    "src/v2/protocol.py": "c979b146c4617940f0651a5e91ea5bb094e6cede5f4b18e05b5d7b4fd501b3c6",
+    "src/v2/report.py": "455a25041b41344ac21126f33749f487db83d15ec5bce55d43170549cc8a68b8",
+    "src/v2/tools.py": "ac5bb7797082f4660ac4e8eab340925126005a57e60a7f92e3045ae3b6717931",
+    "src/v2/workspace_tools.py": "bb139c59b6c9c6c276e49c45edf752d5b92180576d38c40898306116079ad67f"
+  },
+  "git_commit": "cc74628f0145d4f828f220186525db879f5cefaa",
+  "runtime": {
+    "openai": "2.44.0",
+    "httpx": "0.28.1",
+    "keyring": "25.7.0",
+    "PyYAML": "6.0.3"
+  },
+  "python": "3.13.7",
+  "sample": "repair-final-01",
+  "runs": 2,
+  "created_at": "2026-10-23T02:37:56.738706+00:00"
+}

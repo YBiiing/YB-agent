@@ -1,0 +1,26 @@
+{
+  "results": [
+    {
+      "trial": 1,
+      "state": "COMPLETED",
+      "reason": "FINAL_ANSWER",
+      "assessment": "PASSED",
+      "model_requests": 3,
+      "archive_errors": [],
+      "charged_tokens": 4589,
+      "elapsed_seconds": 8.652,
+      "trial_errors": []
+    },
+    {
+      "trial": 2,
+      "state": "COMPLETED",
+      "reason": "FINAL_ANSWER",
+      "assessment": "PASSED",
+      "model_requests": 3,
+      "archive_errors": [],
+      "charged_tokens": 4592,
+      "elapsed_seconds": 7.349,
+      "trial_errors": []
+    }
+  ]
+}

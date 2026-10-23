@@ -1,6 +1,6 @@
 # V2 当前使用方式
 
-当前已实现只读循环、受控版本写入、Windows Python 检查、离线 mock、DeepSeek 适配、运行控制、本地审计与条件验收。三类真实开发基线均连续两次通过；最终 v1 为 read 2/2、repair 0/2、inspect 2/2，G1 尚未通过。完整失败证据见 `evals/v2/results/final-v1/REPORT.md`，后续修订不得覆盖本轮结果。
+当前已实现只读循环、受控版本写入、Windows Python 检查、离线 mock、DeepSeek 适配、运行控制、本地审计与条件验收。三类真实开发基线均连续两次通过；最终 v1 为 read 2/2、repair 0/2、inspect 2/2，重评 v2 为 read 2/2、repair 1/2、inspect 2/2，G1 尚未通过。完整失败证据分别见 `evals/v2/results/final-v1/REPORT.md` 和 `final-v2/REPORT.md`，后续修订不得覆盖。
 
 ## 安装与离线演示
 
@@ -38,7 +38,7 @@ DeepSeek 输入按完整序列化 payload 的 UTF-8 bytes 计量。内容能放�
 
 这不是语义记忆，也不保证被省略的旧事实无用。不能安全放下必要上下文时，以 EXHAUSTED／MODEL_INPUT_LIMIT 结束，不拆批次或发送孤立 tool response；未闭合或含 UNKNOWN 的组不接受为模型上下文。原 Run／报告保留完整 Decision 和 ToolResult，压缩只影响模型输入副本；外部文字仍以 external_tool_observation 或 external_tool_observation_summary 标注，不能提升权限或预算。当前仅 DeepSeek 适配器使用该机械构建器，自定义适配器仍必须通过 Engine 的最终输入预算检查。
 
-stdout 输出 JSON 报告，含 Run/Step/Decision/调用/观测/尝试/事件及模型用量。退出码 0 表示运行正常交付，1 表示未正常交付，2 表示配置或参数错误。`COMPLETED` 不等于目标验收 `PASSED`；当前 Assessment 保持 `UNVERIFIED`。完整持久审计与正式独立验收由后续小目标交付。
+stdout 输出 JSON 报告，含 Run/Step/Decision/调用/观测/尝试/事件及模型用量。退出码 0 表示运行正常交付，1 表示未正常交付，2 表示配置或参数错误。`COMPLETED` 不等于目标验收 `PASSED`；普通 CLI 没有独立验收器时正常结束为 `UNVERIFIED`，存在 UNKNOWN 时为 `INCONCLUSIVE`。本地持久审计可显式用 `--archive-dir` 启用，详见 AUDIT.md；固定评测另有独立验收结论。
 
 审批机制已接入启动边界：默认 `--approvals deny` 对需要人类批准的动作返回拒绝反馈；`--approvals interactive` 展示具体动作，输入 `yes` 批准、`cancel` 取消，其他输入（包括 EOF）拒绝。审批绑定当前 Run、主体、动作参数/版本、可信资源事实、策略版本和期限；资源变化或过期会重新申请，硬拒绝不能被批准覆盖。
 

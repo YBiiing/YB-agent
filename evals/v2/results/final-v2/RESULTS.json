@@ -1,0 +1,137 @@
+{
+  "evaluation_version": "phase1-final-v2",
+  "source_commit": "cc74628f0145d4f828f220186525db879f5cefaa",
+  "rows": [
+    {
+      "category": "read",
+      "trial": 1,
+      "state": "COMPLETED",
+      "reason": "FINAL_ANSWER",
+      "assessment": "PASSED",
+      "model_requests": 4,
+      "charged_tokens": 2920,
+      "elapsed_seconds": 9.948,
+      "trial_errors": [],
+      "tool_calls": 3,
+      "internal_assessment": "UNVERIFIED",
+      "audit_status": "FINALIZED",
+      "actual_models": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "category": "read",
+      "trial": 2,
+      "state": "COMPLETED",
+      "reason": "FINAL_ANSWER",
+      "assessment": "PASSED",
+      "model_requests": 4,
+      "charged_tokens": 2853,
+      "elapsed_seconds": 8.726,
+      "trial_errors": [],
+      "tool_calls": 3,
+      "internal_assessment": "UNVERIFIED",
+      "audit_status": "FINALIZED",
+      "actual_models": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "category": "repair",
+      "trial": 1,
+      "state": "COMPLETED",
+      "reason": "FINAL_ANSWER",
+      "assessment": "PASSED",
+      "model_requests": 5,
+      "archive_errors": [],
+      "charged_tokens": 10609,
+      "elapsed_seconds": 14.041,
+      "trial_errors": [],
+      "tool_calls": 5,
+      "internal_assessment": "UNVERIFIED",
+      "audit_status": "FINALIZED",
+      "actual_models": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "category": "repair",
+      "trial": 2,
+      "state": "COMPLETED",
+      "reason": "FINAL_ANSWER",
+      "assessment": "FAILED",
+      "model_requests": 6,
+      "archive_errors": [],
+      "charged_tokens": 13984,
+      "elapsed_seconds": 17.177,
+      "trial_errors": [],
+      "tool_calls": 5,
+      "internal_assessment": "UNVERIFIED",
+      "audit_status": "FINALIZED",
+      "actual_models": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "category": "inspect",
+      "trial": 1,
+      "state": "COMPLETED",
+      "reason": "FINAL_ANSWER",
+      "assessment": "PASSED",
+      "model_requests": 3,
+      "archive_errors": [],
+      "charged_tokens": 4589,
+      "elapsed_seconds": 8.652,
+      "trial_errors": [],
+      "tool_calls": 4,
+      "internal_assessment": "UNVERIFIED",
+      "audit_status": "FINALIZED",
+      "actual_models": [
+        "deepseek-flash"
+      ]
+    },
+    {
+      "category": "inspect",
+      "trial": 2,
+      "state": "COMPLETED",
+      "reason": "FINAL_ANSWER",
+      "assessment": "PASSED",
+      "model_requests": 3,
+      "archive_errors": [],
+      "charged_tokens": 4592,
+      "elapsed_seconds": 7.349,
+      "trial_errors": [],
+      "tool_calls": 4,
+      "internal_assessment": "UNVERIFIED",
+      "audit_status": "FINALIZED",
+      "actual_models": [
+        "deepseek-flash"
+      ]
+    }
+  ],
+  "total_model_requests": 25,
+  "charged_tokens": 39547,
+  "total_elapsed_seconds": 65.893,
+  "categories": {
+    "read": {
+      "passed": 2,
+      "runs": 2,
+      "required_successes": 2
+    },
+    "repair": {
+      "passed": 1,
+      "runs": 2,
+      "required_successes": 2
+    },
+    "inspect": {
+      "passed": 2,
+      "runs": 2,
+      "required_successes": 2
+    }
+  },
+  "overall": "FAILED",
+  "g1": "NOT_PASSED",
+  "archives_verified": 6,
+  "source_files_copied_exactly": 49,
+  "known_credential_scan": "clear"
+}
